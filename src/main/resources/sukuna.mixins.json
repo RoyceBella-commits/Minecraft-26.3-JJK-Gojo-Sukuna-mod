@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "cn.blockforge.ryomensukuna.m2a542fea.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "PlayerHurtMixin",
+    "ArmorCapMixin",
+    "BlackFlashMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

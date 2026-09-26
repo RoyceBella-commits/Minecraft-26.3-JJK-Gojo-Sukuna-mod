@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    "minecraft:paper",
+    "minecraft:lapis_lazuli",
+    "minecraft:sugar"
+  ],
+  "result": {
+    "id": "sukuna:six_eyes_token",
+    "count": 1
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "slash1": {"category": "player", "sounds": ["sukuna:sukuna/slash1_a", "sukuna:sukuna/slash1_b", "sukuna:sukuna/slash1_c"]},
+  "slash2": {"category": "player", "sounds": ["sukuna:sukuna/slash2_a", "sukuna:sukuna/slash2_b"]},
+  "red_shoot": {"category": "player", "sounds": ["sukuna:sukuna/red_shoot"]},
+  "red_boom": {"category": "player", "sounds": ["sukuna:sukuna/red_boom"]},
+  "domain_open": {"category": "player", "sounds": ["sukuna:sukuna/domain_open"]},
+  "domain_clap": {"category": "player", "sounds": ["sukuna:sukuna/domain_open"]},
+  "domain_slice": {"category": "player", "sounds": ["sukuna:sukuna/domain_slice"]},
+  "domain_end": {"category": "player", "sounds": ["sukuna:sukuna/domain_end"]},
+  "domain_bgm": {"category": "music", "sounds": [{"name": "sukuna:sukuna/domain_bgm", "stream": true}]},
+  "world_cut": {"category": "player", "sounds": ["sukuna:sukuna/world_cut"]},
+  "mahoraga_adapt": {"category": "hostile", "sounds": ["sukuna:sukuna/mahoraga_adapt"]},
+  "mahoraga_spawn": {"category": "player", "sounds": ["sukuna:sukuna/mahoraga_spawn"]},
+  "finger_eat": {"category": "neutral", "sounds": ["sukuna:sukuna/finger_eat"]},
+  "unlock": {"category": "player", "sounds": ["sukuna:sukuna/unlock"]},
+  "rct_heal": {"category": "player", "sounds": ["sukuna:gojo/rct_heal"]},
+  "black_flash": {"category": "player", "sounds": ["sukuna:sukuna/black_flash"]},
+  "void_theme": {"category": "player", "sounds": [{"name": "sukuna:gojo/void_theme", "stream": true}]},
+  "void_loop": {"category": "player", "sounds": [{"name": "sukuna:gojo/void_loop", "stream": true}]},
+  "shrine_voice": {"category": "player", "sounds": ["sukuna:sukuna/shrine_voice"]}
+}

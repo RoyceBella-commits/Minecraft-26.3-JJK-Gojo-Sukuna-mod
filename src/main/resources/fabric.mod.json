@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "sukuna",
+  "version": "${version}",
+  "name": "咒术回战：五条悟 × 两面宿傩 (JJK Gojo × Sukuna)",
+  "description": "五条悟与两面宿傩双路线整合 Mod。首次使用六眼修习凭证或宿傩手指即锁定路线；共用五阶段成长（金心、护甲、徒手伤害、黑闪）、统一轮盘与键位。五条悟：六眼、无限、苍、赫、茈、反转术式、无量空处、空间瞬移；宿傩：解、捌、咒力连打、反转术式、灶·开、世界斩、伏魔御厨子、魔虚罗。另含五条悟/宿傩刷怪蛋 NPC 与管理员秒杀道具。",
+  "authors": [
+    "BlockForge (original Sukuna mod)",
+    "Merged edition contributors"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "cn.blockforge.ryomensukuna.m2a542fea.SukunaMod"
+    ],
+    "client": [
+      "cn.blockforge.ryomensukuna.m2a542fea.SukunaClient"
+    ]
+  },
+  "mixins": [
+    "sukuna.mixins.json",
+    "sukuna.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "26.3",
+    "java": ">=25",
+    "fabric-api": ">=0.161.0"
+  },
+  "accessWidener": "sukuna.accesswidener"
+}

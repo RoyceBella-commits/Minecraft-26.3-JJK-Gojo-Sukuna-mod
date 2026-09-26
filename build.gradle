@@ -1,0 +1,35 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17.21'
+    id 'maven-publish'
+}
+version = project.mod_version
+group = 'cn.blockforge.ryomensukuna'
+base { archivesName = 'jjk-gojo-sukuna' }
+repositories { mavenCentral() }
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+java { toolchain.languageVersion = JavaLanguageVersion.of(25); withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 25; options.compilerArgs += ['-Xmaxerrs', '1000'] }
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
+}
+
+loom { accessWidenerPath = file("src/main/resources/sukuna.accesswidener") }
+
+sourceSets {
+    checks {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+tasks.register('verifyClientControls', JavaExec) {
+    dependsOn checksClasses
+    classpath = sourceSets.checks.runtimeClasspath
+    mainClass = 'cn.blockforge.ryomensukuna.client.ClientControlsCheck'
+    args layout.buildDirectory.dir('client-control-checks').get().asFile.absolutePath
+}
+tasks.named('check') { dependsOn 'verifyClientControls' }

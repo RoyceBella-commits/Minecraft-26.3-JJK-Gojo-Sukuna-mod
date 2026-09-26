@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "cn.blockforge.ryomensukuna.m2a542fea.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "PlayerPoseMixin",
+    "HeldCastMixin",
+    "CameraShakeMixin",
+    "SixEyesGlowMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

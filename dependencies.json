@@ -1,0 +1,12 @@
+{
+  "minecraft": "26.3",
+  "java_major": 25,
+  "build_jdk_tested": "25.0.4.1 (macOS aarch64)",
+  "fabric_loader": "0.19.5",
+  "fabric_api": "0.161.0+26.3",
+  "fabric_loom": "1.17.21",
+  "gradle": "9.6.0",
+  "mod_id": "sukuna",
+  "mod_version": "2.2.1+mc26.3",
+  "status": "build + 103 logic checks passed; 2.2.1 not launched here, gameplay acceptance by the user"
+}

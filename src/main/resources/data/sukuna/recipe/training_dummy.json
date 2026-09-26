@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " S ",
+    "SHS",
+    " S "
+  ],
+  "key": {
+    "S": "minecraft:stick",
+    "H": "minecraft:hay_block"
+  },
+  "result": {
+    "id": "sukuna:training_dummy",
+    "count": 1
+  }
+}
