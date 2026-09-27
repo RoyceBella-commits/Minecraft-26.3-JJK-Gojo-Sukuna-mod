@@ -97,20 +97,52 @@ public final class Progression {
             CurseManager.sync(player);
             return false;
         }
-        int oldStage = s.route() == StageRules.NONE ? 0 : s.stage();
+        CurseState after = applyUpgrade(player, s, itemRoute);
+        celebrate(player, itemRoute, result == StageRules.UseResult.AWAKENED, s, after);
+        CurseManager.sync(player);
+        return true;
+    }
+
+    /** Raises the player one stage on the given route (awakening them when they have no route). */
+    private static CurseState applyUpgrade(ServerPlayer player, CurseState s, int route) {
+        boolean awakening = s.route() == StageRules.NONE || s.stage() <= 0;
+        int oldStage = awakening ? 0 : s.stage();
         int newStage = oldStage + 1;
         float gold = StageRules.goldAfterUpgrade(s.goldHp(), oldStage, newStage);
-        CurseState after = s.withProgress(itemRoute, newStage, gold);
-        if (itemRoute == StageRules.SUKUNA) {
+        CurseState after = s.withProgress(route, newStage, gold);
+        if (route == StageRules.SUKUNA) {
             after = after.withFingers(after.fingers() + 1);
         }
-        if (result == StageRules.UseResult.AWAKENED) {
-            after = after.withSelected((itemRoute == StageRules.GOJO ? Skill.AO : Skill.KAI).netId).withEnergy(after.maxEnergy());
-            if (itemRoute == StageRules.GOJO) after = after.withFlag(CurseState.FLAG_INFINITY, true);
+        if (awakening) {
+            after = after.withSelected((route == StageRules.GOJO ? Skill.AO : Skill.KAI).netId).withEnergy(after.maxEnergy());
+            if (route == StageRules.GOJO) after = after.withFlag(CurseState.FLAG_INFINITY, true);
         }
         CurseManager.setState(player, after);
         Growth.applyAttributes(player);
-        celebrate(player, itemRoute, result == StageRules.UseResult.AWAKENED, s, after);
+        return after;
+    }
+
+    /**
+     * Admin / single-player shortcut: raises the player to {@code targetStage} on the given route
+     * without any practice. Returns false (explaining why) when the route differs or the stage is maxed.
+     */
+    public static boolean forceAdvance(ServerPlayer player, int route, int targetStage) {
+        CurseState before = CurseManager.of(player);
+        boolean awakening = before.route() == StageRules.NONE || before.stage() <= 0;
+        if (!awakening && before.route() != route) {
+            SukunaNet.actionBar(player, "sukuna.hint.wrong_route");
+            return false;
+        }
+        if (!awakening && before.stage() >= StageRules.MAX_STAGE) {
+            SukunaNet.actionBar(player, "sukuna.hint.max_stage");
+            return false;
+        }
+        int target = Math.min(StageRules.MAX_STAGE, targetStage);
+        CurseState s = before;
+        do {
+            s = applyUpgrade(player, s, route);
+        } while (s.stage() < target);
+        celebrate(player, route, awakening, before, s);
         CurseManager.sync(player);
         return true;
     }

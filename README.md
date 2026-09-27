@@ -36,7 +36,7 @@
 步骤：
 
 1. 用 [Fabric 安装器](https://fabricmc.net/use/installer/)为 Minecraft 26.3 安装 Fabric Loader。
-2. 从 [Releases](https://github.com/RoyceBella-commits/jjk-gojo-sukuna/releases/latest) 下载 `jjk-gojo-sukuna-2.2.2+mc26.3.jar`。
+2. 从 [Releases](https://github.com/RoyceBella-commits/jjk-gojo-sukuna/releases/latest) 下载 `jjk-gojo-sukuna-2.2.3+mc26.3.jar`。
 3. 把它和 Fabric API 一起放进游戏目录的 `mods` 文件夹（Windows 默认是 `%APPDATA%\.minecraft\mods`）。
 4. 在启动器里选择 Fabric 配置启动游戏。
 
@@ -243,9 +243,12 @@
 - 领域冷却 60 秒，冷却中绝不展开。冷却结束后，对方开领域或自己血量低于三分之一时会立即展开；
 - 把两个 NPC 放在一起，就能直接看一场领域对抗。
 
-### 秒杀道具
+### 管理员道具
 
-**狱门疆**秒杀五条悟 NPC，**封印咒符**秒杀宿傩 NPC。右键作用于准星指着的目标，没有指着就选 64 格内最近的一个。仅限单人世界或管理员使用，没有合成配方。
+以下道具仅限单人世界或管理员使用，没有合成配方，只能从创造物品栏或 `/give` 获得：
+
+- **五条家秘传卷轴（直升）/ 宿傩手指匣（直升）**：右键无需练习直接升一阶（未觉醒则觉醒进对应路线），潜行右键直升 Ⅴ 阶段；不消耗，路线不符或已满级时不生效；
+- **狱门疆**秒杀五条悟 NPC，**封印咒符**秒杀宿傩 NPC。右键作用于准星指着的目标，没有指着就选 64 格内最近的一个。
 
 ## ⌨️ 道具、按键与命令
 
@@ -266,6 +269,8 @@
 /give @s sukuna:gojo_spawn_egg
 /give @s sukuna:sukuna_spawn_egg
 /give @s sukuna:mahoraga_spawn_egg
+/give @s sukuna:gojo_secret_scroll
+/give @s sukuna:cursed_womb_box
 /give @s sukuna:prison_realm
 /give @s sukuna:sukuna_talisman
 ```
