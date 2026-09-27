@@ -145,6 +145,13 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
         }
         this.setPosRaw(this.anchorX, this.anchorY, this.anchorZ);
         this.setBoundingBox(this.makeBoundingBox());
+        if (this.life % 20 == 0 && this.getOwnerEntity() instanceof ServerPlayer caster) {
+            var d = cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.of(this);
+            if (d != null) {
+                cn.blockforge.ryomensukuna.m2a542fea.net.SukunaNet.actionBar(caster, "sukuna.hint.shrine_stability",
+                    Math.round(d.stability() * 100.0f), Math.max(0, this.remainingTicks()) / 20);
+            }
+        }
         Entity ownerEntity = this.getOwnerEntity();
         if (!(ownerEntity instanceof LivingEntity) || !(owner = (LivingEntity)ownerEntity).isAlive() || owner.isRemoved() || owner.level() != this.level()
             || owner instanceof ServerPlayer sp && !CurseManager.spend(sp, 0.4f)) {
@@ -155,7 +162,8 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
             AABB box = this.getBoundingBox().inflate(this.radius);
             List<LivingEntity> targets = this.level().getEntities(LIVING, box, this::isValidTarget);
             for (LivingEntity target : targets) {
-                if (CurseManager.protectedTarget(owner, target) || cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.sureHitSuppressed(this, target.position())) continue;
+                // In a clash the rival caster is untouched; everyone else suffers both domains.
+                if (CurseManager.protectedTarget(owner, target) || target.getUUID().equals(cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.clashRival(this))) continue;
                 CurseManager.damage(this.level(), owner, target, 5.0f, cn.blockforge.ryomensukuna.m2a542fea.skill.SukunaDamage.sureHit(this.level(), owner), this.castId, cn.blockforge.ryomensukuna.m2a542fea.gojo.InfinityBreach.Category.SLASH);
                 this.spawnRandomSlashFx(target);
                 this.level().playSound(null, target.getX(), target.getY() + 0.8, target.getZ(), SukunaSounds.DOMAIN_SLICE, SoundSource.PLAYERS, 1.0f, 0.9f + this.random.nextFloat() * 0.2f);
@@ -165,7 +173,7 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
             for (cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.Domain d : new java.util.ArrayList<>(cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.active())) {
                 if (d.entity instanceof VoidDomainEntity shell && !d.owner.equals(owner.getUUID()) && shell.level() == this.level()
                     && d.center.distanceTo(new Vec3(this.anchorX, this.anchorY, this.anchorZ)) < this.radius + d.radius) {
-                    shell.damageShell(3.0f);
+                    // An even contest: no shell wear, only the crimson slashes along the seam.
                     if (this.life % 2 == 0) this.clashSeam(shell);
                 }
             }
@@ -230,6 +238,16 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
                 sw.sendParticles(i % 2 == 0 ? ParticleTypes.END_ROD : ParticleTypes.CRIMSON_SPORE, at.x, at.y, at.z, 2, 0.3, 0.3, 0.3, 0.02);
             }
         }
+    }
+
+    @Override
+    public int remainingTicks() {
+        return ASSEMBLY_TICKS + this.activeTicks - this.life;
+    }
+
+    @Override
+    public void setRemainingTicks(int ticks) {
+        this.activeTicks = Math.max(0, this.life + Math.max(0, ticks) - ASSEMBLY_TICKS);
     }
 
     @Override

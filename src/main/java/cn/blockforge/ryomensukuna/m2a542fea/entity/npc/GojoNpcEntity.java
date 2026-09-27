@@ -102,6 +102,33 @@ public class GojoNpcEntity extends JjkNpcEntity {
         return GojoSkills.voidActive(this);
     }
 
+    @Override
+    protected void disengage(ServerLevel level, LivingEntity target) {
+        Vec3 away = this.position().subtract(target.position());
+        away = new Vec3(away.x, 0.0, away.z);
+        away = away.lengthSqr() < 1.0E-3 ? this.getViewVector(1.0f).scale(-1.0) : away.normalize();
+        this.blinkCooldown = 0;
+        this.blink(level, target.position().add(away.scale(14.0 + this.random.nextDouble() * 4.0)), away);
+    }
+
+    @Override
+    protected boolean tryFinisher(ServerLevel level, LivingEntity target) {
+        if (this.murasakiCooldown > 0) return false;
+        GojoSkills.fireMurasaki(this, this.aimAt(target), -1);
+        this.murasakiCooldown = 600;
+        return true;
+    }
+
+    @Override
+    protected void counterFinisher(ServerLevel level, LivingEntity target) {
+        GojoSkills.fireMurasaki(this, this.aimAt(target), -1);
+    }
+
+    @Override
+    protected boolean answers(boolean worldCut) {
+        return worldCut;
+    }
+
     /** Blink to the foe's flank, then fight hand to hand. */
     @Override
     protected void gapClose(ServerLevel level, LivingEntity target) {

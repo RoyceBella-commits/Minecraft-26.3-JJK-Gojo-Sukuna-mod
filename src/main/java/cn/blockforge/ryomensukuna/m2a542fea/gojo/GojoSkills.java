@@ -98,6 +98,7 @@ public final class GojoSkills {
         // Spawned a little further ahead so the huge mass does not fill the caster's view.
         m.setPos(caster.getEyePosition().add(dir.normalize().scale(MurasakiEntity.RADIUS + 2.0)).add(0.0, -0.3, 0.0));
         level.addFreshEntity(m);
+        cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.released(caster, false);
     }
 
     public static void expandVoid(ServerPlayer p, int castId) {

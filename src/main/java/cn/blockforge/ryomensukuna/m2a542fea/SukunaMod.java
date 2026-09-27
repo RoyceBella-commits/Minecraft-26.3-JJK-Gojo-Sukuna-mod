@@ -98,6 +98,7 @@ implements ModInitializer {
             ++this.tickCounter;
             CombatSkills.tick();
             Infinity.tickHeld();
+            cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.tick();
             for (ServerLevel world : server.getAllLevels()) {
                 TerrainCuts.tick(world);
             }

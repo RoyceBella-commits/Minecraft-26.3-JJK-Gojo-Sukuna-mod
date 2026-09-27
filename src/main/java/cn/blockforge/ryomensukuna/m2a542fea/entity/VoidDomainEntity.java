@@ -115,6 +115,16 @@ public class VoidDomainEntity extends TechniqueEntity implements DomainClash.Col
         return false;
     }
 
+    @Override
+    public int remainingTicks() {
+        return this.duration - this.life;
+    }
+
+    @Override
+    public void setRemainingTicks(int ticks) {
+        this.duration = this.life + Math.max(0, ticks);
+    }
+
     public void damageShell(float amount) {
         if (this.finished) return;
         float left = this.shell() - amount;
@@ -167,7 +177,8 @@ public class VoidDomainEntity extends TechniqueEntity implements DomainClash.Col
         long now = level.getGameTime();
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(current))) {
             if (e.distanceToSqr(c) > current * current || !this.isEnemy(e, owner)) continue;
-            if (DomainClash.sureHitSuppressed(this, e.position())) continue;
+            // In a clash the rival caster is untouched; everyone else suffers both domains.
+            if (e.getUUID().equals(DomainClash.clashRival(this))) continue;
             this.hold(e, now);
             if (this.life % 20 == 0) {
                 CurseManager.damage(level, owner, e, SURE_HIT_DAMAGE, SukunaDamage.sureHit(level, owner), this.castId);

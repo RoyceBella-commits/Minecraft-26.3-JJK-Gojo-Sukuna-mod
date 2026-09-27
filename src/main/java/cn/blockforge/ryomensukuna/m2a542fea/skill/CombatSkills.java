@@ -198,6 +198,7 @@ public final class CombatSkills {
     public static void fireWorldCut(LivingEntity p, Vec3 dir, float charge) {
         CurseSlashEntity.launch((ServerLevel)p.level(), p, dir, p.getEyePosition().add(dir.normalize().scale(2.0)), charge, 2);
         CombatSkills.sound(p, SukunaSounds.WORLD_CUT);
+        cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.released(p, true);
     }
 
     private static void sound(LivingEntity p, SoundEvent sound) {

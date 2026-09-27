@@ -11,13 +11,25 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Active domains and their contest rules: overlap cancels sure-hit, and a caster that takes
- * half of (red max + growth gold max) in real damage during the domain loses it.
+ * Active domains and their contest rules. When two rivals' domains meet it is a close contest:
+ * both are cut short to 6 s (the one opened first holds 2 s longer); creatures caught in the
+ * middle suffer both domains while the two casters themselves are untouched by each other's.
+ * A caster that takes half of (red max + growth gold max) in real damage loses the domain.
  */
 public final class DomainClash {
     public interface Collapsible {
         void collapse(String reasonKey);
+
+        /** Ticks until this domain ends on its own. */
+        int remainingTicks();
+
+        void setRemainingTicks(int ticks);
     }
+
+    /** Remaining time of both domains once they clash. */
+    public static final int CLASH_TICKS = 120;
+    /** Extra time for the domain that was opened first. */
+    public static final int FIRST_BONUS_TICKS = 40;
 
     public static final class Domain {
         public final UUID owner;
@@ -27,6 +39,9 @@ public final class DomainClash {
         public final boolean closed;
         final float threshold;
         float stagger;
+        final long openedAt;
+        /** Owner of the domain this one is clashing with, or null. */
+        UUID rival;
 
         Domain(UUID owner, Entity entity, Vec3 center, double radius, boolean closed, float threshold) {
             this.owner = owner;
@@ -35,6 +50,11 @@ public final class DomainClash {
             this.radius = radius;
             this.closed = closed;
             this.threshold = threshold;
+            this.openedAt = entity.level().getGameTime();
+        }
+
+        public UUID rival() {
+            return this.rival;
         }
 
         public boolean contains(Vec3 p) {
@@ -78,15 +98,38 @@ public final class DomainClash {
         return DOMAINS;
     }
 
-    /** True when the target stands inside another caster's domain: sure-hit is cancelled there. */
-    public static boolean sureHitSuppressed(Entity ownDomain, Vec3 targetPos) {
-        Domain own = of(ownDomain);
-        for (Domain d : active()) {
-            if (d.entity == ownDomain || own != null && d.owner.equals(own.owner)) continue;
-            if (d.entity.level() != ownDomain.level()) continue;
-            if (d.contains(targetPos)) return true;
+    /** Owner of the rival domain this one is clashing with (its effects must spare them), or null. */
+    public static UUID clashRival(Entity domain) {
+        Domain d = of(domain);
+        return d == null ? null : d.rival;
+    }
+
+    /** Once per server tick: two rivals' domains that meet start a clash (once per pair). */
+    public static void tick() {
+        List<Domain> list = new ArrayList<>(active());
+        for (int i = 0; i < list.size(); ++i) {
+            Domain a = list.get(i);
+            for (int j = i + 1; j < list.size(); ++j) {
+                Domain b = list.get(j);
+                if (a.owner.equals(b.owner) || a.entity.level() != b.entity.level()) continue;
+                if (a.rival != null && b.rival != null) continue;
+                if (a.center.distanceTo(b.center) >= a.radius + b.radius) continue;
+                a.rival = b.owner;
+                b.rival = a.owner;
+                shorten(a, a.openedAt < b.openedAt);
+                shorten(b, b.openedAt < a.openedAt);
+            }
         }
-        return false;
+    }
+
+    private static void shorten(Domain d, boolean first) {
+        if (!(d.entity instanceof Collapsible c)) return;
+        int cap = CLASH_TICKS + (first ? FIRST_BONUS_TICKS : 0);
+        if (c.remainingTicks() > cap) c.setRemainingTicks(cap);
+        if (d.entity.level() instanceof net.minecraft.server.level.ServerLevel level
+            && level.getPlayerByUUID(d.owner) instanceof ServerPlayer p) {
+            SukunaNet.actionBar(p, first ? "sukuna.hint.domain_clash_first" : "sukuna.hint.domain_clash");
+        }
     }
 
     /** Real damage (gold + red) taken by a caster; enough of it breaks their domain. */

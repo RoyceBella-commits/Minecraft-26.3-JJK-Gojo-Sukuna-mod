@@ -37,10 +37,7 @@ public final class SkillDispatcher {
             CurseManager.sync(player);
             return;
         }
-        CurseState state = CurseManager.of(player);
-        if (state.selected() != skill.netId) {
-            CurseManager.setState(player, state.withSelected(skill.netId));
-        }
+        // The wheel selection is only changed by the wheel (technique hotkeys cast without selecting).
         if (skill == Skill.MURASAKI && chargeSeconds < Skill.MURASAKI_MIN_CHARGE) {
             // Released early: cancelled, the invested charge is spent and only a short cooldown applies.
             CurseManager.spend(player, skill.chargeCost * chargeSeconds);

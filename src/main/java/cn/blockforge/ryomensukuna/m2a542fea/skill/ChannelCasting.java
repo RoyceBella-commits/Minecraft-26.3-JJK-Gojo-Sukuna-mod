@@ -88,7 +88,8 @@ public final class ChannelCasting {
             SukunaNet.sendFeedback(p, skill.netId, SukunaNet.FAIL_LOCKED);
             return false;
         }
-        if (cn.blockforge.ryomensukuna.m2a542fea.entity.VoidDomainEntity.stunned(p)) {
+        // Held by Unlimited Void, the one thing left to try is opening one's own domain.
+        if (skill != Skill.DOMAIN && cn.blockforge.ryomensukuna.m2a542fea.entity.VoidDomainEntity.stunned(p)) {
             SukunaNet.sendFeedback(p, skill.netId, SukunaNet.FAIL_STUNNED);
             return false;
         }

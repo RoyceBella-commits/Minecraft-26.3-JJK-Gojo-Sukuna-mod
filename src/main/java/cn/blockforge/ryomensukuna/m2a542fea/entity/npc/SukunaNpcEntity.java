@@ -71,8 +71,44 @@ public class SukunaNpcEntity extends JjkNpcEntity implements Enemy {
     }
 
     @Override
+    protected boolean canDomainWhileHeld() {
+        return true;
+    }
+
+    @Override
     protected boolean domainActive() {
         return DomainSkill.active(this);
+    }
+
+    /** A great bound backward, away from the foe. */
+    @Override
+    protected void disengage(ServerLevel level, LivingEntity target) {
+        Vec3 away = this.position().subtract(target.position());
+        Vec3 flat = new Vec3(away.x, 0.0, away.z);
+        flat = flat.lengthSqr() < 1.0E-3 ? this.getViewVector(1.0f).scale(-1.0) : flat.normalize();
+        this.setDeltaMovement(flat.scale(2.2).add(0.0, 0.8, 0.0));
+        this.needsSync = true;
+        this.fallDistance = 0.0;
+        this.getNavigation().stop();
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD, this.getX(), this.getY() + 0.1, this.getZ(), 18, 0.5, 0.05, 0.5, 0.08);
+    }
+
+    @Override
+    protected boolean tryFinisher(ServerLevel level, LivingEntity target) {
+        if (this.worldCutCooldown > 0) return false;
+        CombatSkills.fireWorldCut(this, this.aimAt(target), 2.0f);
+        this.worldCutCooldown = 800;
+        return true;
+    }
+
+    @Override
+    protected void counterFinisher(ServerLevel level, LivingEntity target) {
+        CombatSkills.fireWorldCut(this, this.aimAt(target), 2.0f);
+    }
+
+    @Override
+    protected boolean answers(boolean worldCut) {
+        return !worldCut;
     }
 
     /** A great bound toward the foe, landing within reach of its fists. */

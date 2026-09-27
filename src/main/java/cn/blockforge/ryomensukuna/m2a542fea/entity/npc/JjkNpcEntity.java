@@ -53,6 +53,14 @@ public abstract class JjkNpcEntity extends PathfinderMob {
     private int burstHealCooldown;
     /** Whether this sorcerer fights the current target from range (rolled once per target). */
     private boolean preferRange;
+    /** A gap-closing flurry is under way; when it ends the sorcerer breaks off to range. */
+    private boolean disengagePending;
+    /** Ticks until a counter-finisher is released at {@link #counterTarget}. */
+    private int counterDelay = -1;
+    private int counterCooldown;
+    private LivingEntity counterTarget;
+    /** A fight this long without a win turns into long-range finisher play (8 s). */
+    private static final int LONG_FIGHT_TICKS = 160;
     private LivingEntity rangeRolledFor;
 
     protected JjkNpcEntity(EntityType<? extends JjkNpcEntity> type, Level level) {
@@ -92,6 +100,41 @@ public abstract class JjkNpcEntity extends PathfinderMob {
     /** Whether this sorcerer's own domain is currently open. */
     protected abstract boolean domainActive();
 
+    /** Breaks away from a foe after a close-quarters flurry (Gojo blinks away, Sukuna bounds back). */
+    protected abstract void disengage(ServerLevel level, LivingEntity target);
+
+    /** This sorcerer's finisher (Hollow Purple / World Cut) if it is off cooldown; returns whether it was cast. */
+    protected abstract boolean tryFinisher(ServerLevel level, LivingEntity target);
+
+    /** The finisher cast straight back at an opponent's finisher, regardless of its cooldown. */
+    protected abstract void counterFinisher(ServerLevel level, LivingEntity target);
+
+    /** Whether this sorcerer answers the given finisher (Gojo answers World Cut, Sukuna answers Hollow Purple). */
+    protected abstract boolean answers(boolean worldCut);
+
+    /**
+     * An opponent released World Cut / Hollow Purple: nearby technique NPCs that fight the caster
+     * answer with their own finisher a moment later so the two collide.
+     */
+    public static void onFinisher(LivingEntity caster, boolean worldCut) {
+        for (JjkNpcEntity npc : caster.level().getEntitiesOfClass(JjkNpcEntity.class, caster.getBoundingBox().inflate(128.0),
+                n -> n != caster && n.isAlive() && n.answers(worldCut) && n.mayHurt(caster))) {
+            if (npc.counterCooldown > 0 || npc.counterDelay >= 0 || VoidDomainEntity.stunned(npc)) continue;
+            npc.counterTarget = caster;
+            npc.counterDelay = 5;
+        }
+    }
+
+    /** Fought for 8 s without a win. */
+    protected boolean longFight() {
+        return this.combatTicks > LONG_FIGHT_TICKS;
+    }
+
+    /** Whether this sorcerer may still try its domain while held by Unlimited Void. */
+    protected boolean canDomainWhileHeld() {
+        return false;
+    }
+
     /** Closes in on a strong foe between ranged techniques (Gojo blinks, Sukuna bounds). */
     protected abstract void gapClose(ServerLevel level, LivingEntity target);
 
@@ -109,7 +152,9 @@ public abstract class JjkNpcEntity extends PathfinderMob {
 
     /** Ranged techniques are about ready and this foe is fought from a distance. */
     protected boolean holdingRange() {
-        return this.preferRange && this.engageTicks <= 0 && this.skillCooldown <= RANGED_READY && this.getTarget() != null;
+        if (this.getTarget() == null || this.engageTicks > 0) return false;
+        // After 8 s without a win it keeps its distance for the finishers regardless of cooldowns.
+        return this.longFight() || this.preferRange && this.skillCooldown <= RANGED_READY;
     }
 
     /** An enemy Gojo / Sukuna has opened a domain around (or right next to) this sorcerer. */
@@ -197,9 +242,26 @@ public abstract class JjkNpcEntity extends PathfinderMob {
             CurseFx.particles(level, ParticleTypes.END_ROD, this.getX(), this.getY() + 1.0, this.getZ(), 30, 0.4, 0.8, 0.4, 0.05);
             level.playSound(null, this.getX(), this.getY(), this.getZ(), SukunaSounds.RCT_HEAL, SoundSource.HOSTILE, 1.0f, 0.9f);
         }
-        if (VoidDomainEntity.stunned(this)) return;
         if (this.skillCooldown > 0) --this.skillCooldown;
         if (this.domainCooldown > 0) --this.domainCooldown;
+        if (VoidDomainEntity.stunned(this)) {
+            // Held still: at most (Sukuna) an attempt to open its own domain.
+            if (this.canDomainWhileHeld() && this.wantsDomain(level, this.getTarget(), this.getTarget() == null ? 0.0 : this.distanceTo(this.getTarget()))
+                && this.castDomain(level)) {
+                this.domainCooldown = DOMAIN_COOLDOWN;
+            }
+            return;
+        }
+        if (this.counterCooldown > 0) --this.counterCooldown;
+        if (this.counterDelay >= 0 && --this.counterDelay < 0) {
+            LivingEntity foe = this.counterTarget;
+            this.counterTarget = null;
+            if (foe != null && foe.isAlive() && foe.level() == level) {
+                this.getLookControl().setLookAt(foe, 90.0f, 90.0f);
+                this.counterFinisher(level, foe);
+                this.counterCooldown = 200;
+            }
+        }
         if (this.engageTicks > 0) --this.engageTicks;
         LivingEntity target = this.getTarget();
         boolean fighting = target != null && target.isAlive() && target.level() == this.level();
@@ -209,9 +271,9 @@ public abstract class JjkNpcEntity extends PathfinderMob {
         } else {
             ++this.combatTicks;
             if (target != this.rangeRolledFor) {
-                // Not every foe is fought from range: strong ones usually are, others seldom.
+                // Strong foes are always fought from range between flurries; others seldom.
                 this.rangeRolledFor = target;
-                this.preferRange = this.random.nextFloat() < (strong(target) ? 0.7f : 0.25f);
+                this.preferRange = strong(target) || this.random.nextFloat() < 0.25f;
             }
         }
         double distance = fighting ? this.distanceTo(target) : 0.0;
@@ -221,15 +283,22 @@ public abstract class JjkNpcEntity extends PathfinderMob {
             return;
         }
         if (!fighting) return;
+        // End of a close-quarters flurry: break off to range at once.
+        if (this.disengagePending && this.engageTicks <= 0) {
+            this.disengagePending = false;
+            this.disengage(level, target);
+        }
         if (this.skillCooldown <= 0 && this.hasLineOfSight(target)) {
             this.getLookControl().setLookAt(target, 60.0f, 60.0f);
-            boolean used = this.useSkill(level, target, distance);
+            // Long fights are settled from afar with the finisher whenever it is ready.
+            boolean used = this.longFight() && distance > 8.0 && this.tryFinisher(level, target) || this.useSkill(level, target, distance);
             // Techniques come every 5-8 s: noticeably rarer than a player could cast them.
             this.skillCooldown = used ? 100 + this.random.nextInt(60) : 30;
-            // Against a strong foe, a blink / bound and a flurry of blows between ranged techniques.
-            if (used && strong(target) && this.engageTicks <= 0 && distance > 4.0 && this.random.nextFloat() < 0.6f) {
+            // Against a strong foe: ranged technique -> blink / bound in for a flurry -> break away, and again.
+            if (used && strong(target) && this.engageTicks <= 0 && distance > 4.0 && !this.longFight()) {
                 this.gapClose(level, target);
                 this.engageTicks = 50;
+                this.disengagePending = true;
             }
         }
     }
@@ -257,12 +326,13 @@ public abstract class JjkNpcEntity extends PathfinderMob {
             JjkNpcEntity self = JjkNpcEntity.this;
             self.getLookControl().setLookAt(target, 30.0f, 30.0f);
             double d = self.distanceTo(target);
-            if (d < 9.0) {
+            boolean far = self.longFight();
+            if (d < (far ? 16.0 : 9.0)) {
                 if (self.getNavigation().isDone()) {
                     Vec3 away = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPosAway(self, 16, 7, target.position());
                     if (away != null) self.getNavigation().moveTo(away.x, away.y, away.z, 1.3);
                 }
-            } else if (d > 18.0) {
+            } else if (d > (far ? 26.0 : 18.0)) {
                 self.getNavigation().moveTo(target, 1.1);
             } else {
                 self.getNavigation().stop();

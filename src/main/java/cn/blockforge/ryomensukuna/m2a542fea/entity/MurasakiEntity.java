@@ -59,6 +59,7 @@ public class MurasakiEntity extends TechniqueEntity {
             this.discard();
             return;
         }
+        if (this.collideWithWorldCut(level, c)) return;
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(RADIUS + 0.5))) {
             if (!this.validTarget(e, owner) || this.hit.contains(e.getUUID())) continue;
             if (e.getBoundingBox().getCenter().distanceToSqr(c) > (RADIUS + 0.8) * (RADIUS + 0.8)) continue;
@@ -81,6 +82,30 @@ public class MurasakiEntity extends TechniqueEntity {
         if (this.travelled >= RANGE || next.y < level.getMinY() - 8) {
             this.detonate(level, next, owner);
         }
+    }
+
+    /** Hollow Purple meeting World Cut: the two annihilate each other in a flash, harming nothing. */
+    private boolean collideWithWorldCut(ServerLevel level, Vec3 c) {
+        for (CurseSlashEntity cut : level.getEntitiesOfClass(CurseSlashEntity.class, new AABB(c, c).inflate(RADIUS + 60.0), e -> e.getMode() == 2 && !e.isRemoved())) {
+            Vec3 dir = cut.getTravelDir();
+            Vec3 right = TerrainCuts.right(dir);
+            Vec3 up = dir.cross(right).normalize();
+            Vec3 off = c.subtract(cut.position());
+            double along = off.dot(dir);
+            if (along < -RADIUS || along > 4.5 + RADIUS + 3.0) continue;
+            if (Math.abs(off.dot(right)) > cut.halfSize() + RADIUS || Math.abs(off.dot(up)) > 2.0 + RADIUS) continue;
+            Vec3 at = cut.position().add(dir.scale(Math.max(0.0, along)));
+            CurseFx.particles(level, new DustParticleOptions(0x9B30FF, 3.0f), at.x, at.y, at.z, 160, 4.0, 4.0, 4.0, 0.0);
+            CurseFx.particles(level, new DustParticleOptions(0xE0101A, 3.0f), at.x, at.y, at.z, 120, 5.0, 3.0, 5.0, 0.0);
+            CurseFx.particles(level, ParticleTypes.EXPLOSION_EMITTER, at.x, at.y, at.z, 3, 2.0, 2.0, 2.0, 0.0);
+            CurseFx.particles(level, ParticleTypes.END_ROD, at.x, at.y, at.z, 80, 1.0, 1.0, 1.0, 0.6);
+            level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 6.0f, 0.4f);
+            level.playSound(null, at.x, at.y, at.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 5.0f, 0.5f);
+            cut.discard();
+            this.discard();
+            return true;
+        }
+        return false;
     }
 
     /** Blue and red twisting around the purple mass: Lapse and Reversal still visibly fused together. */

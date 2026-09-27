@@ -23,7 +23,7 @@
   "skill.sukuna.rct.desc": "被动：自动缓慢回复生命。主动：按住施放键或 B 快速大量回复（先红心、后金心），都满后停止；治疗时移动变慢。",
   "skill.sukuna.red.desc": "灶·开：拉开燃烧的弓，松开发射火焰箭，命中引发大范围爆燃。",
   "skill.sukuna.world_cut.desc": "蓄力后释放一道切开空间的斩击，总能直接突破无限：对生物约1000伤害，对玩家60–70伤害。",
-  "skill.sukuna.domain.desc": "开放式领域（半径约36格，与无量空处相同）：神龛显现后必中斩击并破坏地形，持续20秒（Ⅴ阶段30秒）；结束后术式熔断。与无量空处重叠时，两个领域以分界面各占一侧。再次选中领域按施放键可提前解除。",
+  "skill.sukuna.domain.desc": "开放式领域（半径约36格）：神龛显现后必中斩击并破坏地形，持续20秒（Ⅴ阶段30秒）。与无量空处对决时两边势均力敌，都只剩约6秒（先展开的多2秒）；双方施术者不受对方领域影响。被无量空处定身时仍可以展开。再次选中领域按施放键可提前解除。",
   "sukuna.hint.domain_end": "领域已解除",
   "death.attack.sukuna.world_cut": "%1$s 被世界斩切开了",
   "death.attack.sukuna.world_cut.player": "%1$s 被 %2$s 的世界斩切开了",
@@ -98,7 +98,7 @@
   "skill.sukuna.gojo_rct.desc": "被动：自动缓慢回复生命。主动：按住施放键快速大量回复（先红心、后金心），都满后停止；治疗时移动变慢，无限可保持开启。",
   "skill.sukuna.void": "领域展开·无量空处",
   "skill.sukuna.void.short": "无量空处",
-  "skill.sukuna.void.desc": "结印至少1秒后，黑色球体领域从脚下向外铺展（半径约36格；Ⅳ阶段20秒，Ⅴ阶段30秒）。领域内是星空，身后的天空出现巨大黑洞，星光高速掠过；所有敌人被完全定身并受到少量必中伤害。豁免队友、宠物与中立生物；结束时外壳碎裂，之后熔断。",
+  "skill.sukuna.void.desc": "结印至少1秒后，黑色球体领域从脚下向外铺展（半径约36格；Ⅳ阶段20秒，Ⅴ阶段30秒）。领域内是星空，身后的天空出现巨大黑洞；所有敌人被完全定身并受到少量必中伤害。与伏魔御厨子对决时两边势均力敌，都只剩约6秒（先展开的多2秒）；双方施术者不受对方领域影响，夹在中间的生物同时承受两种领域。",
   "sukuna.route.gojo": "五条悟",
   "sukuna.route.sukuna": "两面宿傩",
   "sukuna.stage.name.0": "未觉醒",
@@ -222,5 +222,9 @@
   "key.sukuna.skill.aka": "快捷施放：术式反转·赫（五条悟）",
   "key.sukuna.skill.murasaki": "快捷施放：虚式·茈（五条悟）",
   "key.sukuna.skill.gojo_rct": "快捷施放：反转术式（五条悟）",
-  "key.sukuna.skill.void": "快捷施放：领域展开·无量空处（五条悟）"
+  "key.sukuna.skill.void": "快捷施放：领域展开·无量空处（五条悟）",
+  "sukuna.hint.shrine_stability": "领域稳定 %s%% · 剩余 %s 秒",
+  "sukuna.hint.domain_clash": "领域对决！双方领域大幅缩短",
+  "sukuna.hint.domain_clash_first": "领域对决！你先展开领域，多维持 2 秒",
+  "sukuna.hint.incoming": "⚠ 对方释放了「%s」！"
 }

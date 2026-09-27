@@ -177,9 +177,7 @@ public final class ChargeInput {
             if (dashEdge) mobility(client, Mobility.DASH, now);
             if (leapEdge) mobility(client, Mobility.LEAP, now);
             handleQuick(quickEdge, QUICK_GATE.held(), now);
-            if (hotkeyEdge && SukunaClientState.unlocked(hotkeySkill)) {
-                ChargeInput.select(Skill.byId(hotkeySkill));
-            }
+            // A hotkey casts its own technique without touching the wheel selection.
             int selected = hotkeyEdge ? hotkeySkill : SukunaClientState.selected;
             boolean connected = ClientPlayNetworking.canSend(SukunaNet.C2S_CAST);
             boolean wasCharging = SESSION.isCharging();
