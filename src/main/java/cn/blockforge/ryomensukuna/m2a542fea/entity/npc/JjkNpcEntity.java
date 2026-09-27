@@ -39,7 +39,12 @@ import net.minecraft.world.phys.Vec3;
  * uses its techniques now and then (less often than a player would), plus a rare domain.
  */
 public abstract class JjkNpcEntity extends PathfinderMob {
-    public static final float MAX_HEALTH = 20.0f + StageRules.goldHp(StageRules.MAX_STAGE);
+    /** A far larger pool than any player's, so the NPCs read as bosses rather than players. */
+    public static final float MAX_HEALTH = 200.0f;
+    /** Health of the earlier NPCs (red + stage V gold); fights are balanced around it. */
+    private static final float LEGACY_HEALTH = 20.0f + StageRules.goldHp(StageRules.MAX_STAGE);
+    /** Every hit on an NPC is scaled by this, so the bigger pool takes as many blows as before. */
+    public static final float DAMAGE_SCALE = MAX_HEALTH / LEGACY_HEALTH;
     private static final Identifier FLASH_BOOST = SukunaMod.id("npc_black_flash");
     /** Domain cooldown (60 s from the cast). Nothing ever opens a domain while it runs. */
     private static final int DOMAIN_COOLDOWN = 1200;
@@ -223,6 +228,15 @@ public abstract class JjkNpcEntity extends PathfinderMob {
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, LivingEntity.class, true, (target, level) -> this.canHarm(target)));
     }
 
+    /** NPCs saved before the 200-health pool keep their share of health on the new pool. */
+    private void upgradeLegacyHealth() {
+        AttributeInstance max = this.getAttribute(Attributes.MAX_HEALTH);
+        if (max == null || max.getBaseValue() >= MAX_HEALTH) return;
+        float share = this.getHealth() / Math.max(1.0f, this.getMaxHealth());
+        max.setBaseValue(MAX_HEALTH);
+        this.setHealth(share * this.getMaxHealth());
+    }
+
     protected Vec3 aimAt(LivingEntity target) {
         Vec3 d = target.getBoundingBox().getCenter().subtract(this.getEyePosition());
         return d.lengthSqr() < 1.0E-4 ? this.getViewVector(1.0f) : d.normalize();
@@ -232,8 +246,9 @@ public abstract class JjkNpcEntity extends PathfinderMob {
     public void tick() {
         super.tick();
         if (!(this.level() instanceof ServerLevel level) || !this.isAlive()) return;
+        this.upgradeLegacyHealth();
         if (this.tickCount % 20 == 0 && this.getHealth() < this.getMaxHealth()) {
-            this.heal(1.0f);
+            this.heal(DAMAGE_SCALE);
         }
         if (this.burstHealCooldown > 0) --this.burstHealCooldown;
         if (this.getHealth() < this.getMaxHealth() * 0.3f && this.burstHealCooldown <= 0) {
