@@ -26,8 +26,8 @@ public final class DomainClash {
         void setRemainingTicks(int ticks);
     }
 
-    /** Remaining time of both domains once they clash. */
-    public static final int CLASH_TICKS = 120;
+    /** A clash leaves each domain at most this long (20 s); one with less left keeps its own timer. */
+    public static final int CLASH_TICKS = 400;
     /** Extra time for the domain that was opened first. */
     public static final int FIRST_BONUS_TICKS = 40;
 
@@ -124,8 +124,8 @@ public final class DomainClash {
 
     private static void shorten(Domain d, boolean first) {
         if (!(d.entity instanceof Collapsible c)) return;
-        int cap = CLASH_TICKS + (first ? FIRST_BONUS_TICKS : 0);
-        if (c.remainingTicks() > cap) c.setRemainingTicks(cap);
+        int left = Math.min(c.remainingTicks(), CLASH_TICKS);
+        c.setRemainingTicks(left + (first ? FIRST_BONUS_TICKS : 0));
         if (d.entity.level() instanceof net.minecraft.server.level.ServerLevel level
             && level.getPlayerByUUID(d.owner) instanceof ServerPlayer p) {
             SukunaNet.actionBar(p, first ? "sukuna.hint.domain_clash_first" : "sukuna.hint.domain_clash");

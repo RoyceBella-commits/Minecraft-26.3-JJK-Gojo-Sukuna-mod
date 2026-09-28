@@ -11,6 +11,9 @@ import cn.blockforge.ryomensukuna.m2a542fea.skill.CurseManager;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import cn.blockforge.ryomensukuna.m2a542fea.util.CurseFx;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -99,6 +102,24 @@ public final class GojoSkills {
         m.setPos(caster.getEyePosition().add(dir.normalize().scale(MurasakiEntity.RADIUS + 2.0)).add(0.0, -0.3, 0.0));
         level.addFreshEntity(m);
         cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.released(caster, false);
+    }
+
+    /** Ao struck by Aka in flight: a lesser Hollow Purple bursts out where the Ao was, along Aka's path. */
+    public static MurasakiEntity fusePurple(LivingEntity caster, Vec3 at, Vec3 dir, int castId) {
+        ServerLevel level = (ServerLevel)caster.level();
+        MurasakiEntity m = new MurasakiEntity(SukunaMod.MURASAKI, level);
+        m.configureFused(caster, dir, castId);
+        m.setPos(at);
+        level.addFreshEntity(m);
+        for (int i = 0; i < 32; ++i) {
+            double a = i * Math.PI * 2.0 / 32.0;
+            level.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 0, Math.cos(a) * 0.5, Math.sin(a) * 0.5, 0.0, 1.0);
+        }
+        CurseFx.particles(level, new DustParticleOptions(0xC08CFF, 3.0f), at.x, at.y, at.z, 60, 1.5, 1.5, 1.5, 0.0);
+        level.playSound(null, at.x, at.y, at.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 2.0f, 0.7f);
+        level.playSound(null, at.x, at.y, at.z, SoundEvents.WARDEN_SONIC_CHARGE, SoundSource.PLAYERS, 1.6f, 1.2f);
+        cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.released(caster, false);
+        return m;
     }
 
     public static void expandVoid(ServerPlayer p, int castId) {

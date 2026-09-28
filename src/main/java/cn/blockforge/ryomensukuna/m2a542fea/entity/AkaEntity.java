@@ -1,5 +1,6 @@
 package cn.blockforge.ryomensukuna.m2a542fea.entity;
 
+import cn.blockforge.ryomensukuna.m2a542fea.gojo.GojoSkills;
 import cn.blockforge.ryomensukuna.m2a542fea.mobility.Mobility;
 import cn.blockforge.ryomensukuna.m2a542fea.progression.StageRules;
 import cn.blockforge.ryomensukuna.m2a542fea.skill.CurseManager;
@@ -25,6 +26,8 @@ import net.minecraft.world.phys.Vec3;
 public class AkaEntity extends TechniqueEntity {
     private static final double SPEED = 2.2;
     private static final double SCALE = StageRules.VOLUME_X3;
+    /** How close Aka must pass to its caster's Ao to fuse with it. */
+    private static final double FUSE_REACH = 3.0 * SCALE;
     private Vec3 heading = new Vec3(0.0, 0.0, 1.0);
 
     public AkaEntity(EntityType<? extends AkaEntity> type, Level level) {
@@ -45,6 +48,7 @@ public class AkaEntity extends TechniqueEntity {
         Vec3 to = from.add(this.heading.scale(SPEED));
         BlockHitResult block = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.ANY, this));
         Vec3 end = block.getType() == HitResult.Type.MISS ? to : block.getLocation();
+        if (owner != null && this.fuseWithAo(level, owner, from, end)) return;
         AABB sweep = new AABB(from, end).inflate((0.6 + this.charge() * 0.15) * SCALE);
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, sweep)) {
             if (!this.validTarget(e, owner)) continue;
@@ -60,6 +64,22 @@ public class AkaEntity extends TechniqueEntity {
         this.setPos(end);
         CurseFx.particles(level, new DustParticleOptions(0xFF2020, 1.6f), end.x, end.y, end.z, 7, 0.18, 0.18, 0.18, 0.0);
         CurseFx.particles(level, new DustParticleOptions(0xFFFFFF, 0.9f), end.x, end.y, end.z, 3, 0.08, 0.08, 0.08, 0.0);
+    }
+
+    /** Reversal Red striking its caster's own Ao in flight: the two fuse into a (lesser) Hollow Purple. */
+    private boolean fuseWithAo(ServerLevel level, LivingEntity owner, Vec3 from, Vec3 end) {
+        AoEntity ao = AoEntity.of(owner);
+        if (ao == null || ao.level() != level || this.life < 1) return false;
+        Vec3 c = ao.position();
+        Vec3 seg = end.subtract(from);
+        double len2 = seg.lengthSqr();
+        double t = len2 < 1.0E-6 ? 0.0 : Math.max(0.0, Math.min(1.0, c.subtract(from).dot(seg) / len2));
+        double reach = FUSE_REACH + this.size() * 0.5;
+        if (from.add(seg.scale(t)).distanceToSqr(c) > reach * reach) return false;
+        ao.absorb();
+        GojoSkills.fusePurple(owner, c, this.heading, this.castId);
+        this.discard();
+        return true;
     }
 
     private void explode(ServerLevel level, Vec3 at) {

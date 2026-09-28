@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
@@ -24,6 +25,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -38,7 +40,15 @@ public final class Mobility {
     private static final Map<UUID, Boolean> AIR_STEP_USED = new ConcurrentHashMap<>();
     private static final Map<UUID, FallGrace> GRACE = new ConcurrentHashMap<>();
     private static final double BLINK_RANGE = 50.0;
-    private static final double BOUND_SPEED = 2.6;
+    /** Cursed bound (Winston-like): horizontal speed, base lift, lift per unit of looking up, lift cap. */
+    private static final double BOUND_HORIZONTAL = 1.9;
+    private static final double BOUND_LIFT = 0.8;
+    private static final double BOUND_LIFT_PER_UP = 0.9;
+    private static final double BOUND_MAX_LIFT = 1.7;
+    /** A bound this long in the air lands with a heavy thud. */
+    private static final int BOUND_SLAM_AIRTIME = 8;
+    /** Cursed bounds in flight: when they began (game time). */
+    private static final Map<UUID, Long> BOUND_FLIGHT = new ConcurrentHashMap<>();
 
     private record FallGrace(double launchY, long since) {}
 
@@ -49,6 +59,7 @@ public final class Mobility {
         COOLDOWNS.clear();
         AIR_STEP_USED.clear();
         GRACE.clear();
+        BOUND_FLIGHT.clear();
     }
 
     public static float cooldownLeft(ServerPlayer p, int kind) {
@@ -230,29 +241,77 @@ public final class Mobility {
         return true;
     }
 
-    /** Cursed bound: a long, fast jump along the view (about 25 blocks). Once per stay in the air. */
+    /**
+     * Cursed bound, with the feel of Winston's jump pack: W (or no key) arcs high along the view (look
+     * up to go higher and shorter), S / A / D bound low along the ground that way. The fall is
+     * softened on the client and a long bound lands with a heavy thud that harms nothing. One more
+     * bound is allowed in the air; landing restores it.
+     */
     private static boolean cursedBound(ServerPlayer p, float forward, float strafe) {
-        if (!p.onGround() && AIR_STEP_USED.getOrDefault(p.getUUID(), false)) {
+        boolean ground = p.onGround();
+        if (!ground && AIR_STEP_USED.getOrDefault(p.getUUID(), false)) {
             refuse(p, "sukuna.hint.air_used");
             return false;
         }
         Vec3 look = p.getViewVector(1.0f);
-        Vec3 flat = new Vec3(look.x, 0.0, look.z);
-        Vec3 dir = flat.lengthSqr() < 1.0E-3 ? direction(p, forward, strafe) : flat.normalize();
-        if (headroom(p, 1) <= 0 && clearDistance(p, dir, 1.0) < 0.5) {
+        Vec3 keyDir = hasInput(forward, strafe) && forward <= 0.05f ? direction(p, forward, strafe) : null;
+        double[] v = boundVelocity(look.x, look.y, look.z, keyDir == null ? null : new double[]{keyDir.x, keyDir.z}, ground);
+        Vec3 velocity = new Vec3(v[0], v[1], v[2]);
+        Vec3 flat = new Vec3(v[0], 0.0, v[2]);
+        if (headroom(p, 1) <= 0 && (flat.lengthSqr() < 1.0E-4 || clearDistance(p, flat.normalize(), 1.0) < 0.5)) {
             refuse(p, "sukuna.hint.blocked");
             return false;
         }
-        double lift = Math.max(0.55, Math.min(1.25, 0.85 + look.y * 0.6));
-        if (!p.onGround()) AIR_STEP_USED.put(p.getUUID(), true);
+        if (!ground) AIR_STEP_USED.put(p.getUUID(), true);
         Vec3 feet = p.position();
-        launch(p, new Vec3(dir.x * BOUND_SPEED, lift, dir.z * BOUND_SPEED));
+        launch(p, velocity);
+        BOUND_FLIGHT.put(p.getUUID(), p.level().getGameTime());
         ring(p.level(), feet.add(0.0, 0.1, 0.0), 0xB0121E, 1.4);
         CurseFx.particles(p.level(), ParticleTypes.CLOUD, feet.x, feet.y + 0.1, feet.z, 18, 0.5, 0.05, 0.5, 0.08);
         CurseFx.particles(p.level(), new DustParticleOptions(0x8C0A14, 1.2f), feet.x, feet.y + 1.0, feet.z, 14, 0.3, 0.5, 0.3, 0.0);
+        p.level().playSound(null, feet.x, feet.y, feet.z, SoundEvents.BREEZE_JUMP, SoundSource.PLAYERS, 1.0f, 0.6f);
         p.level().playSound(null, feet.x, feet.y, feet.z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.0f, 0.5f);
-        p.level().playSound(null, feet.x, feet.y, feet.z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.8f, 0.6f);
         return true;
+    }
+
+    /**
+     * Launch velocity of a cursed bound: along the view in the air (looking up trades distance for
+     * height), or low along {@code keyDir} (x, z) when S / A / D is held. Weaker when already airborne.
+     */
+    public static double[] boundVelocity(double lookX, double lookY, double lookZ, double[] keyDir, boolean ground) {
+        double up = Math.max(0.0, lookY);
+        double lift = Math.min(BOUND_MAX_LIFT, BOUND_LIFT + BOUND_LIFT_PER_UP * up);
+        double hx, hz;
+        if (keyDir != null) {
+            hx = keyDir[0];
+            hz = keyDir[1];
+            lift = BOUND_LIFT;
+        } else {
+            double flat = Math.sqrt(lookX * lookX + lookZ * lookZ);
+            hx = flat < 1.0E-4 ? 0.0 : lookX / flat;
+            hz = flat < 1.0E-4 ? 0.0 : lookZ / flat;
+        }
+        double speed = BOUND_HORIZONTAL * (keyDir != null ? 1.0 : 1.0 - 0.6 * up);
+        if (!ground) lift *= 0.8;
+        return new double[]{hx * speed, lift, hz * speed};
+    }
+
+    /** The heavy landing of a long bound: dust, a dull boom, a red ring. No damage, knockback or terrain. */
+    private static void boundLanding(ServerPlayer p) {
+        ServerLevel level = p.level();
+        Vec3 feet = p.position();
+        BlockState below = level.getBlockState(BlockPos.containing(feet.x, feet.y - 0.2, feet.z));
+        if (!below.isAir()) {
+            BlockParticleOption dust = new BlockParticleOption(ParticleTypes.BLOCK, below);
+            for (int i = 0; i < 24; ++i) {
+                double a = i * Math.PI * 2.0 / 24.0;
+                CurseFx.particles(level, dust, feet.x + Math.cos(a) * 1.8, feet.y + 0.1, feet.z + Math.sin(a) * 1.8, 3, 0.2, 0.05, 0.2, 0.15);
+            }
+        }
+        CurseFx.particles(level, ParticleTypes.CLOUD, feet.x, feet.y + 0.2, feet.z, 20, 1.2, 0.05, 1.2, 0.05);
+        ring(level, feet.add(0.0, 0.15, 0.0), 0xB0121E, 2.2);
+        level.playSound(null, feet.x, feet.y, feet.z, SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS, 1.2f, 0.6f);
+        level.playSound(null, feet.x, feet.y, feet.z, SoundEvents.GENERIC_BIG_FALL, SoundSource.PLAYERS, 0.8f, 0.6f);
     }
 
     private static boolean cursedLeap(ServerPlayer p, float forward, float strafe, Vec3 dir) {
@@ -314,6 +373,19 @@ public final class Mobility {
         }
         if (p.onGround()) {
             AIR_STEP_USED.remove(p.getUUID());
+        }
+        Long bound = BOUND_FLIGHT.get(p.getUUID());
+        if (bound != null) {
+            long airtime = p.level().getGameTime() - bound;
+            if (airtime > 200 || !p.isAlive()) {
+                BOUND_FLIGHT.remove(p.getUUID());
+            } else if (airtime > 2 && (p.onGround() || p.isInWater())) {
+                BOUND_FLIGHT.remove(p.getUUID());
+                if (airtime >= BOUND_SLAM_AIRTIME && p.onGround()) boundLanding(p);
+            } else {
+                // The bound itself never hurts on landing.
+                p.resetFallDistance();
+            }
         }
         FallGrace grace = GRACE.get(p.getUUID());
         if (grace != null) {

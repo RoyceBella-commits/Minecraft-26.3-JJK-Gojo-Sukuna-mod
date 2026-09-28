@@ -130,6 +130,11 @@ public abstract class JjkNpcEntity extends PathfinderMob {
         }
     }
 
+    /** A move saved for hard fights, tried before anything else; false when it does not apply. */
+    protected boolean hardFightMove(ServerLevel level, LivingEntity target, double distance) {
+        return false;
+    }
+
     /** Fought for 8 s without a win. */
     protected boolean longFight() {
         return this.combatTicks > LONG_FIGHT_TICKS;
@@ -305,12 +310,14 @@ public abstract class JjkNpcEntity extends PathfinderMob {
         }
         if (this.skillCooldown <= 0 && this.hasLineOfSight(target)) {
             this.getLookControl().setLookAt(target, 60.0f, 60.0f);
+            // A hard fight's signature move comes first (Gojo: the fused Purple; Sukuna: Mahoraga).
+            boolean special = this.hardFightMove(level, target, distance);
             // Long fights are settled from afar with the finisher whenever it is ready.
-            boolean used = this.longFight() && distance > 8.0 && this.tryFinisher(level, target) || this.useSkill(level, target, distance);
+            boolean used = special || this.longFight() && distance > 8.0 && this.tryFinisher(level, target) || this.useSkill(level, target, distance);
             // Techniques come every 5-8 s: noticeably rarer than a player could cast them.
             this.skillCooldown = used ? 100 + this.random.nextInt(60) : 30;
             // Against a strong foe: ranged technique -> blink / bound in for a flurry -> break away, and again.
-            if (used && strong(target) && this.engageTicks <= 0 && distance > 4.0 && !this.longFight()) {
+            if (used && !special && strong(target) && this.engageTicks <= 0 && distance > 4.0 && !this.longFight()) {
                 this.gapClose(level, target);
                 this.engageTicks = 50;
                 this.disengagePending = true;

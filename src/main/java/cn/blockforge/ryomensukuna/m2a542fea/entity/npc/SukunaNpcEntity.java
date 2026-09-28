@@ -1,6 +1,8 @@
 package cn.blockforge.ryomensukuna.m2a542fea.entity.npc;
 
 import cn.blockforge.ryomensukuna.m2a542fea.entity.MahoragaEntity;
+import cn.blockforge.ryomensukuna.m2a542fea.mobility.Mobility;
+import cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.MahoragaSkill;
 import cn.blockforge.ryomensukuna.m2a542fea.progression.StageRules;
 import cn.blockforge.ryomensukuna.m2a542fea.skill.CombatSkills;
 import cn.blockforge.ryomensukuna.m2a542fea.skill.domain.DomainSkill;
@@ -15,10 +17,15 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Ryomen Sukuna (spawn egg): attacks every living thing except players who chose the Sukuna route
  * (and other Sukuna / Mahoraga). Uses Dismantle, Cleave, the barrage, Flame Arrow, World Cut and
- * Malevolent Shrine; never summons Mahoraga.
+ * Malevolent Shrine; calls Mahoraga only when a fight drags on past 30 s.
  */
 public class SukunaNpcEntity extends JjkNpcEntity implements Enemy {
     private int worldCutCooldown = 400;
+    /** A fight this long without a win brings out Mahoraga (30 s). */
+    private static final int HARD_FIGHT_TICKS = 600;
+    /** 60 s before another Mahoraga, counted only while none of its own is out. */
+    private static final int MAHORAGA_COOLDOWN = 1200;
+    private int mahoragaCooldown;
 
     public SukunaNpcEntity(EntityType<? extends SukunaNpcEntity> type, Level level) {
         super(type, level);
@@ -35,6 +42,8 @@ public class SukunaNpcEntity extends JjkNpcEntity implements Enemy {
     public void tick() {
         super.tick();
         if (this.worldCutCooldown > 0 && !this.level().isClientSide()) --this.worldCutCooldown;
+        // The summon cooldown only runs while no Mahoraga of its own is out.
+        if (this.mahoragaCooldown > 0 && !this.level().isClientSide() && this.tickCount % 20 == 0 && this.mahoraga() == null) this.mahoragaCooldown -= 20;
     }
 
     @Override
@@ -63,6 +72,24 @@ public class SukunaNpcEntity extends JjkNpcEntity implements Enemy {
             CombatSkills.fireKai(this, aim, 1.0f);
         }
         return true;
+    }
+
+    /** Thirty seconds without settling the fight: Mahoraga is called up from the shadow. */
+    @Override
+    protected boolean hardFightMove(ServerLevel level, LivingEntity target, double distance) {
+        if (this.combatTicks <= HARD_FIGHT_TICKS || this.mahoragaCooldown > 0 || this.mahoraga() != null) return false;
+        Vec3 side = this.getViewVector(1.0f).cross(new Vec3(0.0, 1.0, 0.0));
+        side = side.lengthSqr() < 1.0E-3 ? new Vec3(1.0, 0.0, 0.0) : side.normalize();
+        Vec3 anchor = Mobility.safeSpot(this, this.position().add(side.scale(3.0)), side);
+        MahoragaSkill.summonFor(this, anchor != null ? anchor : this.position(), null);
+        this.mahoragaCooldown = MAHORAGA_COOLDOWN;
+        return true;
+    }
+
+    private MahoragaEntity mahoraga() {
+        String id = this.getStringUUID();
+        return this.level().getEntitiesOfClass(MahoragaEntity.class, this.getBoundingBox().inflate(256.0),
+            m -> m.isAlive() && id.equals(m.ownerUuid())).stream().findFirst().orElse(null);
     }
 
     @Override

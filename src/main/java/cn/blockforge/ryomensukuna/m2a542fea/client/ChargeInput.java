@@ -119,7 +119,29 @@ public final class ChargeInput {
         }
     }
 
+    /** Ticks since a Sukuna cursed bound was sent (-1: none in flight). */
+    private static int boundTicks = -1;
+
+    /**
+     * Winston-like hang time after a cursed bound: the fall is softened (gravity 0.08 -> about 0.05).
+     * If no launch followed the press (refused by the server), the glide is dropped.
+     */
+    private static void boundGlide(Minecraft client) {
+        var p = client.player;
+        if (boundTicks < 0 || p == null) return;
+        ++boundTicks;
+        Vec3 v = p.getDeltaMovement();
+        boolean launched = v.y > 0.3 || v.horizontalDistanceSqr() > 0.6;
+        if (boundTicks == 3 && !launched || boundTicks > 3 && (p.onGround() || p.isInWater()) || boundTicks > 200
+            || SukunaClientState.route != StageRules.SUKUNA) {
+            boundTicks = -1;
+            return;
+        }
+        if (boundTicks > 3 && v.y < 0.15) p.setDeltaMovement(v.x, v.y + 0.03, v.z);
+    }
+
     public static void init() {
+        ClientTickEvents.END_CLIENT_TICK.register(ChargeInput::boundGlide);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             boolean wheel = SukunaKeys.WHEEL.isDown(), wheelEvent = drain(SukunaKeys.WHEEL);
             boolean cast = SukunaKeys.CAST.isDown(), castEvent = drain(SukunaKeys.CAST);
@@ -262,6 +284,7 @@ public final class ChargeInput {
         if (unlocked && cd <= 0.05f && !sealed) {
             cancelCharge(now);
             stopQuickHeal();
+            if (kind == Mobility.DASH && SukunaClientState.route == StageRules.SUKUNA) boundTicks = 0;
         }
         Vec2 move = client.player.input.moveVector;
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());

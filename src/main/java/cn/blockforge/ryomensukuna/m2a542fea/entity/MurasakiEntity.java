@@ -14,6 +14,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -31,6 +32,8 @@ public class MurasakiEntity extends TechniqueEntity {
     private final Set<UUID> hit = new HashSet<>();
     private Vec3 heading = new Vec3(0.0, 0.0, 1.0);
     private double travelled;
+    /** Fused in flight from Ao and Aka: half the size, reach and damage, armour counts, kills Mahoraga. */
+    private boolean fused;
 
     public MurasakiEntity(EntityType<? extends MurasakiEntity> type, Level level) {
         super(type, level);
@@ -43,9 +46,39 @@ public class MurasakiEntity extends TechniqueEntity {
         this.setDeltaMovement(this.heading.scale(SPEED));
     }
 
+    /** Hollow Purple born from an Ao struck by Aka in flight. */
+    public void configureFused(LivingEntity owner, Vec3 dir, int castId) {
+        this.configure(owner, dir, castId);
+        this.fused = true;
+        this.setSize((float)this.radius());
+    }
+
+    public Vec3 heading() {
+        return this.heading;
+    }
+
+    public boolean fused() {
+        return this.fused;
+    }
+
+    private double radius() {
+        return this.fused ? RADIUS * 0.5 : RADIUS;
+    }
+
     private void strike(ServerLevel level, LivingEntity owner, LivingEntity e) {
         this.hit.add(e.getUUID());
-        CurseManager.curseDamage(level, owner != null ? owner : this, e, SukunaDamage.finisher(e, this.random), this.castId);
+        if (!this.fused) {
+            CurseManager.curseDamage(level, owner != null ? owner : this, e, SukunaDamage.finisher(e, this.random), this.castId);
+            return;
+        }
+        if (e instanceof MahoragaEntity mahoraga) {
+            // The fused Purple erases Mahoraga before the wheel can turn.
+            mahoraga.kill(level);
+            if (mahoraga.isAlive()) mahoraga.setHealth(0.0f);
+            return;
+        }
+        Entity attacker = owner != null ? owner : this;
+        CurseManager.damage(level, attacker, e, SukunaDamage.finisher(e, this.random) * 0.5f, SukunaDamage.fusedPurple(level, attacker), this.castId);
     }
 
     @Override
@@ -60,18 +93,19 @@ public class MurasakiEntity extends TechniqueEntity {
             return;
         }
         if (this.collideWithWorldCut(level, c)) return;
-        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(RADIUS + 0.5))) {
+        double radius = this.radius();
+        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(radius + 0.5))) {
             if (!this.validTarget(e, owner) || this.hit.contains(e.getUUID())) continue;
-            if (e.getBoundingBox().getCenter().distanceToSqr(c) > (RADIUS + 0.8) * (RADIUS + 0.8)) continue;
+            if (e.getBoundingBox().getCenter().distanceToSqr(c) > (radius + 0.8) * (radius + 0.8)) continue;
             this.strike(level, owner, e);
         }
         if (this.life % 2 == 0) {
-            TerrainCuts.burst(level, c, RADIUS - 0.3, false);
+            TerrainCuts.burst(level, c, radius - 0.3, false);
         }
         DustParticleOptions purple = new DustParticleOptions(0x8A2BE2, 3.0f);
-        CurseFx.particles(level, purple, c.x, c.y, c.z, 28, RADIUS * 0.45, RADIUS * 0.45, RADIUS * 0.45, 0.0);
-        CurseFx.particles(level, ParticleTypes.PORTAL, c.x, c.y, c.z, 24, RADIUS * 0.6, RADIUS * 0.6, RADIUS * 0.6, 0.6);
-        CurseFx.particles(level, ParticleTypes.CLOUD, c.x, c.y - RADIUS * 0.6, c.z, 8, RADIUS * 0.5, 0.1, RADIUS * 0.5, 0.05);
+        CurseFx.particles(level, purple, c.x, c.y, c.z, 28, radius * 0.45, radius * 0.45, radius * 0.45, 0.0);
+        CurseFx.particles(level, ParticleTypes.PORTAL, c.x, c.y, c.z, 24, radius * 0.6, radius * 0.6, radius * 0.6, 0.6);
+        CurseFx.particles(level, ParticleTypes.CLOUD, c.x, c.y - radius * 0.6, c.z, 8, radius * 0.5, 0.1, radius * 0.5, 0.05);
         this.fusionSpirals(level, c);
         Vec3 next = c.add(this.heading.scale(SPEED));
         this.travelled += SPEED;
@@ -79,21 +113,22 @@ public class MurasakiEntity extends TechniqueEntity {
         if (this.life % 6 == 0) {
             level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 2.5f, 0.5f);
         }
-        if (this.travelled >= RANGE || next.y < level.getMinY() - 8) {
+        if (this.travelled >= (this.fused ? RANGE * 0.5 : RANGE) || next.y < level.getMinY() - 8) {
             this.detonate(level, next, owner);
         }
     }
 
     /** Hollow Purple meeting World Cut: the two annihilate each other in a flash, harming nothing. */
     private boolean collideWithWorldCut(ServerLevel level, Vec3 c) {
-        for (CurseSlashEntity cut : level.getEntitiesOfClass(CurseSlashEntity.class, new AABB(c, c).inflate(RADIUS + 60.0), e -> e.getMode() == 2 && !e.isRemoved())) {
+        double radius = this.radius();
+        for (CurseSlashEntity cut : level.getEntitiesOfClass(CurseSlashEntity.class, new AABB(c, c).inflate(radius + 60.0), e -> e.getMode() == 2 && !e.isRemoved())) {
             Vec3 dir = cut.getTravelDir();
             Vec3 right = TerrainCuts.right(dir);
             Vec3 up = dir.cross(right).normalize();
             Vec3 off = c.subtract(cut.position());
             double along = off.dot(dir);
-            if (along < -RADIUS || along > 4.5 + RADIUS + 3.0) continue;
-            if (Math.abs(off.dot(right)) > cut.halfSize() + RADIUS || Math.abs(off.dot(up)) > 2.0 + RADIUS) continue;
+            if (along < -radius || along > 4.5 + radius + 3.0) continue;
+            if (Math.abs(off.dot(right)) > cut.halfSize() + radius || Math.abs(off.dot(up)) > 2.0 + radius) continue;
             Vec3 at = cut.position().add(dir.scale(Math.max(0.0, along)));
             CurseFx.particles(level, new DustParticleOptions(0x9B30FF, 3.0f), at.x, at.y, at.z, 160, 4.0, 4.0, 4.0, 0.0);
             CurseFx.particles(level, new DustParticleOptions(0xE0101A, 3.0f), at.x, at.y, at.z, 120, 5.0, 3.0, 5.0, 0.0);
@@ -119,7 +154,7 @@ public class MurasakiEntity extends TechniqueEntity {
         for (int k = 0; k < 6; ++k) {
             double a = this.life * 0.45 + k * 0.35;
             double back = -k * 0.6;
-            Vec3 ring = side.scale(Math.cos(a) * RADIUS * 0.95).add(up.scale(Math.sin(a) * RADIUS * 0.95));
+            Vec3 ring = side.scale(Math.cos(a) * this.radius() * 0.95).add(up.scale(Math.sin(a) * this.radius() * 0.95));
             Vec3 along = this.heading.scale(back);
             Vec3 b = c.add(along).add(ring);
             Vec3 r = c.add(along).subtract(ring);
@@ -130,12 +165,14 @@ public class MurasakiEntity extends TechniqueEntity {
 
     /** End of the path: the unstable mass bursts outward. */
     private void detonate(ServerLevel level, Vec3 at, LivingEntity owner) {
-        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(BLAST_RADIUS))) {
-            if (!this.validTarget(e, owner) || this.hit.contains(e.getUUID()) || e.distanceToSqr(at) > BLAST_RADIUS * BLAST_RADIUS) continue;
+        double scale = this.fused ? 0.5 : 1.0;
+        double blast = BLAST_RADIUS * scale;
+        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(blast))) {
+            if (!this.validTarget(e, owner) || this.hit.contains(e.getUUID()) || e.distanceToSqr(at) > blast * blast) continue;
             this.strike(level, owner, e);
         }
-        TerrainCuts.burst(level, at, 6.0 * StageRules.VOLUME_X3 * StageRules.VOLUME_X3, false);
-        CurseFx.particles(level, new DustParticleOptions(0xC08CFF, 3.0f), at.x, at.y, at.z, 240, BLAST_RADIUS * 0.6, BLAST_RADIUS * 0.6, BLAST_RADIUS * 0.6, 0.0);
+        TerrainCuts.burst(level, at, 6.0 * StageRules.VOLUME_X3 * StageRules.VOLUME_X3 * scale, false);
+        CurseFx.particles(level, new DustParticleOptions(0xC08CFF, 3.0f), at.x, at.y, at.z, 240, blast * 0.6, blast * 0.6, blast * 0.6, 0.0);
         CurseFx.particles(level, ParticleTypes.EXPLOSION_EMITTER, at.x, at.y, at.z, 4, 2.0, 2.0, 2.0, 0.0);
         level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 5.0f, 0.5f);
         level.playSound(null, at.x, at.y, at.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 3.0f, 0.6f);

@@ -215,6 +215,11 @@ public class AoEntity extends TechniqueEntity {
         }
     }
 
+    /** Taken into a fused Hollow Purple: the Ao vanishes without its implosion. */
+    public void absorb() {
+        this.collapse(false);
+    }
+
     /** Final implosion: the gathered space snaps shut. */
     private void collapse(boolean loud) {
         if (this.level() instanceof ServerLevel level && loud) {

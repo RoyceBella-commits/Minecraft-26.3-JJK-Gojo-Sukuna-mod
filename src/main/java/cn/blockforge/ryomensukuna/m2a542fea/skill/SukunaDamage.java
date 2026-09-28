@@ -14,6 +14,9 @@ public final class SukunaDamage {
     /** Domain sure-hit: passes through Infinity (but not through an overlapping enemy domain). */
     public static final ResourceKey<DamageType> SURE_HIT = ResourceKey.create(Registries.DAMAGE_TYPE, SukunaMod.id("sure_hit"));
 
+    /** Hollow Purple fused in flight from Ao and Aka: ordinary damage, so armour softens it. */
+    public static final ResourceKey<DamageType> FUSED_PURPLE = ResourceKey.create(Registries.DAMAGE_TYPE, SukunaMod.id("fused_purple"));
+
     /** Finishers (Hollow Purple, World Cut): about 1000 to anything but players, 60-70 to players. */
     public static final float FINISHER_DAMAGE = 1000.0f;
 
@@ -30,6 +33,10 @@ public final class SukunaDamage {
 
     public static DamageSource worldCut(Level world, Entity attacker) {
         return new DamageSource(world.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(WORLD_CUT), attacker);
+    }
+
+    public static DamageSource fusedPurple(Level world, Entity attacker) {
+        return new DamageSource(world.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(FUSED_PURPLE), attacker);
     }
 
     public static DamageSource sureHit(Level world, Entity attacker) {

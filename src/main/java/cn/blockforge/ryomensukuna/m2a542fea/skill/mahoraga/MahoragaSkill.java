@@ -14,6 +14,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 public final class MahoragaSkill {
@@ -58,19 +59,23 @@ public final class MahoragaSkill {
         for (MahoragaEntity old : owned(player)) {
             old.discard();
         }
-        MahoragaEntity m = new MahoragaEntity(SukunaMod.MAHORAGA, player.level());
-        m.snapTo(anchor.x, anchor.y, anchor.z, player.getYRot(), 0.0f);
-        m.ownerUuid(player.getStringUUID());
         CompoundTag stored = player.getAttached(STORE);
         boolean restored = stored != null;
-        if (restored) {
-            m.restoreFromRecall(stored);
-            player.removeAttached(STORE);
-        }
-        m.beginEmergence();
-        player.level().addFreshEntity((Entity)m);
-        SlashFxEntity.spawn(player.level(), anchor.x, anchor.y + 0.015, anchor.z, 5, 0.0f, 90.0f, 2.8f);
-        player.level().playSound(null, anchor.x, anchor.y, anchor.z, SukunaSounds.MAHORAGA_SPAWN, SoundSource.HOSTILE, 2.0f, 0.8f);
+        MahoragaEntity m = summonFor(player, anchor, stored);
+        if (restored) player.removeAttached(STORE);
         SukunaNet.actionBar(player, restored ? "sukuna.hint.mahoraga_return" : "sukuna.hint.mahoraga_summon", new Object[0]);
+    }
+
+    /** Raises Mahoraga from the shadow at {@code anchor} for any master (a player or a Sukuna NPC). */
+    public static MahoragaEntity summonFor(LivingEntity owner, Vec3 anchor, CompoundTag stored) {
+        MahoragaEntity m = new MahoragaEntity(SukunaMod.MAHORAGA, owner.level());
+        m.snapTo(anchor.x, anchor.y, anchor.z, owner.getYRot(), 0.0f);
+        m.ownerUuid(owner.getStringUUID());
+        if (stored != null) m.restoreFromRecall(stored);
+        m.beginEmergence();
+        owner.level().addFreshEntity((Entity)m);
+        SlashFxEntity.spawn(owner.level(), anchor.x, anchor.y + 0.015, anchor.z, 5, 0.0f, 90.0f, 2.8f);
+        owner.level().playSound(null, anchor.x, anchor.y, anchor.z, SukunaSounds.MAHORAGA_SPAWN, SoundSource.HOSTILE, 2.0f, 0.8f);
+        return m;
     }
 }

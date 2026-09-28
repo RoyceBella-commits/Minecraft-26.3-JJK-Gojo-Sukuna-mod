@@ -2,6 +2,7 @@ package cn.blockforge.ryomensukuna.m2a542fea.entity.npc;
 
 import cn.blockforge.ryomensukuna.m2a542fea.entity.AoEntity;
 import cn.blockforge.ryomensukuna.m2a542fea.entity.MahoragaEntity;
+import cn.blockforge.ryomensukuna.m2a542fea.entity.MurasakiEntity;
 import cn.blockforge.ryomensukuna.m2a542fea.gojo.GojoSkills;
 import cn.blockforge.ryomensukuna.m2a542fea.gojo.Infinity;
 import cn.blockforge.ryomensukuna.m2a542fea.mobility.Mobility;
@@ -26,6 +27,13 @@ public class GojoNpcEntity extends JjkNpcEntity {
     private int blinkCooldown;
     /** Ticks left holding an Ao circling this NPC; it is let go (and stays) when this runs out. */
     private int orbitTicks;
+    /** Fused Purple combo: an Ao set down, then Aka fired into it, then riding out behind the Purple. */
+    private static final int COMBO_COOLDOWN = 400;
+    private int comboCooldown = 200;
+    private int comboStep;
+    private int comboTimer;
+    private Vec3 comboPoint;
+    private int comboWait;
 
     public GojoNpcEntity(EntityType<? extends GojoNpcEntity> type, Level level) {
         super(type, level);
@@ -44,6 +52,8 @@ public class GojoNpcEntity extends JjkNpcEntity {
             Infinity.shield(this);
             if (this.murasakiCooldown > 0) --this.murasakiCooldown;
             if (this.blinkCooldown > 0) --this.blinkCooldown;
+            if (this.comboCooldown > 0) --this.comboCooldown;
+            if (this.comboStep > 0) this.tickCombo((ServerLevel)this.level());
             if (this.orbitTicks > 0) {
                 if (--this.orbitTicks == 0 || !AoEntity.grab(this)) {
                     AoEntity.release(this);
@@ -80,15 +90,70 @@ public class GojoNpcEntity extends JjkNpcEntity {
         }
         if (distance < 7.0) {
             if (roll > 0.75f) return false;
-            GojoSkills.fireAoAt(this, target.getBoundingBox().getCenter(), 1.0f, -1);
+            if (roll < 0.35f) {
+                GojoSkills.fireAka(this, aim, 1.0f, -1);
+            } else {
+                GojoSkills.fireAoAt(this, target.getBoundingBox().getCenter(), 1.0f, -1);
+            }
             return true;
         }
-        if (roll < 0.65f) {
+        if (roll < 0.8f) {
             GojoSkills.fireAka(this, aim, 1.5f, -1);
         } else {
             GojoSkills.fireAoAt(this, target.getBoundingBox().getCenter(), 1.5f, -1);
         }
         return true;
+    }
+
+    /** Pressed hard (a long fight or below half health), or facing Mahoraga: the fused Purple. */
+    @Override
+    protected boolean hardFightMove(ServerLevel level, LivingEntity target, double distance) {
+        boolean hard = this.longFight() || this.getHealth() < this.getMaxHealth() * 0.5f;
+        if (!(hard || target instanceof MahoragaEntity) || this.comboCooldown > 0 || this.comboStep > 0 || distance < 7.0) return false;
+        Vec3 aim = this.aimAt(target);
+        this.comboPoint = this.getEyePosition().add(aim.scale(6.0));
+        AoEntity ao = GojoSkills.fireAoAt(this, this.comboPoint, 0.5f, -1);
+        this.comboPoint = ao.position();
+        this.comboStep = 1;
+        this.comboTimer = 8;
+        this.comboCooldown = COMBO_COOLDOWN;
+        return true;
+    }
+
+    private void tickCombo(ServerLevel level) {
+        if (--this.comboTimer > 0) return;
+        if (this.comboStep == 1) {
+            // Aka straight into the waiting Ao.
+            AoEntity ao = AoEntity.of(this);
+            if (ao == null) {
+                this.comboStep = 0;
+                return;
+            }
+            Vec3 dir = ao.position().subtract(this.getEyePosition());
+            if (dir.lengthSqr() < 1.0E-3) dir = this.getViewVector(1.0f);
+            GojoSkills.fireAka(this, dir.normalize(), 1.5f, -1);
+            this.comboStep = 2;
+            this.comboTimer = 1;
+            this.comboWait = 20;
+            return;
+        }
+        // Step 2: once the Purple is born, ride out behind it along its path.
+        for (MurasakiEntity m : level.getEntitiesOfClass(MurasakiEntity.class, this.getBoundingBox().inflate(24.0),
+                m -> m.fused() && m.owner() == this && m.age() < 6)) {
+            Vec3 h = m.heading();
+            this.setDeltaMovement(h.x * 2.2, Math.max(0.35, h.y * 2.2 + 0.35), h.z * 2.2);
+            this.needsSync = true;
+            this.fallDistance = 0.0;
+            this.getNavigation().stop();
+            CurseFx.particles(level, ParticleTypes.END_ROD, this.getX(), this.getY() + 1.0, this.getZ(), 16, 0.3, 0.6, 0.3, 0.05);
+            this.comboStep = 0;
+            return;
+        }
+        if (--this.comboWait <= 0) {
+            this.comboStep = 0;
+        } else {
+            this.comboTimer = 1;
+        }
     }
 
     @Override

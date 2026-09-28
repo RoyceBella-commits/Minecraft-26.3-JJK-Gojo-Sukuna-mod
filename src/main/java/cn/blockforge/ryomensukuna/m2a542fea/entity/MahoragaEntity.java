@@ -485,6 +485,12 @@ extends PathfinderMob {
                 return;
             }
         }
+        if (o instanceof net.minecraft.world.entity.Mob master && master.getTarget() != null && this.validCombatTarget(master.getTarget())
+            && master.getTarget().distanceToSqr((Entity)this) <= 1024.0) {
+            // A Sukuna NPC's shikigami joins its master's fight.
+            this.setTarget(master.getTarget());
+            return;
+        }
         if (o != null) {
             LivingEntity hurtBy = o.getLastHurtByMob();
             long sinceHurt = o.tickCount - o.getLastHurtByMobTimestamp();
