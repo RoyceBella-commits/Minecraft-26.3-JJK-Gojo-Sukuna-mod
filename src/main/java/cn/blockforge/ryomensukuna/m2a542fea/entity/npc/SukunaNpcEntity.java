@@ -17,15 +17,15 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Ryomen Sukuna (spawn egg): attacks every living thing except players who chose the Sukuna route
  * (and other Sukuna / Mahoraga). Uses Dismantle, Cleave, the barrage, Flame Arrow, World Cut and
- * Malevolent Shrine; calls Mahoraga only when a fight drags on past 30 s.
+ * Malevolent Shrine; calls Mahoraga readily (and then bears its wheel) unless the last one was
+ * destroyed within 5 minutes.
  */
 public class SukunaNpcEntity extends JjkNpcEntity implements Enemy {
     private int worldCutCooldown = 400;
-    /** A fight this long without a win brings out Mahoraga (30 s). */
-    private static final int HARD_FIGHT_TICKS = 600;
-    /** 60 s before another Mahoraga, counted only while none of its own is out. */
-    private static final int MAHORAGA_COOLDOWN = 1200;
-    private int mahoragaCooldown;
+    /** Against a strong foe Mahoraga comes out after 5 s of fighting (or once hurt below 60%). */
+    private static final int MAHORAGA_STRONG_TICKS = 100;
+    /** Against anything, after 15 s without a win. */
+    private static final int MAHORAGA_ANY_TICKS = 300;
 
     public SukunaNpcEntity(EntityType<? extends SukunaNpcEntity> type, Level level) {
         super(type, level);
@@ -43,7 +43,6 @@ public class SukunaNpcEntity extends JjkNpcEntity implements Enemy {
         super.tick();
         if (this.worldCutCooldown > 0 && !this.level().isClientSide()) --this.worldCutCooldown;
         // The summon cooldown only runs while no Mahoraga of its own is out.
-        if (this.mahoragaCooldown > 0 && !this.level().isClientSide() && this.tickCount % 20 == 0 && this.mahoraga() == null) this.mahoragaCooldown -= 20;
     }
 
     @Override
@@ -74,15 +73,19 @@ public class SukunaNpcEntity extends JjkNpcEntity implements Enemy {
         return true;
     }
 
-    /** Thirty seconds without settling the fight: Mahoraga is called up from the shadow. */
+    /**
+     * Mahoraga is called up from the shadow early: 5 s into a fight with a strong foe (or once hurt
+     * below 60%), 15 s into any fight. Never while one is out or within 5 minutes of losing one.
+     */
     @Override
     protected boolean hardFightMove(ServerLevel level, LivingEntity target, double distance) {
-        if (this.combatTicks <= HARD_FIGHT_TICKS || this.mahoragaCooldown > 0 || this.mahoraga() != null) return false;
+        boolean pressed = strong(target) && (this.combatTicks > MAHORAGA_STRONG_TICKS || this.getHealth() < this.getMaxHealth() * 0.6f);
+        if (!pressed && this.combatTicks <= MAHORAGA_ANY_TICKS) return false;
+        if (MahoragaSkill.deathLockSeconds(this) > 0.0f || this.mahoraga() != null) return false;
         Vec3 side = this.getViewVector(1.0f).cross(new Vec3(0.0, 1.0, 0.0));
         side = side.lengthSqr() < 1.0E-3 ? new Vec3(1.0, 0.0, 0.0) : side.normalize();
         Vec3 anchor = Mobility.safeSpot(this, this.position().add(side.scale(3.0)), side);
         MahoragaSkill.summonFor(this, anchor != null ? anchor : this.position(), null);
-        this.mahoragaCooldown = MAHORAGA_COOLDOWN;
         return true;
     }
 

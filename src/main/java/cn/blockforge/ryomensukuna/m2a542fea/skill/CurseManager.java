@@ -124,7 +124,10 @@ public final class CurseManager {
 
     public static float cooldownLeft(ServerPlayer player, Skill skill) {
         float[] cds = COOLDOWNS.get(player.getUUID());
-        return cds == null ? 0.0f : cds[skill.netId];
+        float left = cds == null ? 0.0f : cds[skill.netId];
+        // A destroyed Mahoraga keeps its own, much longer lock (it survives death and relogging).
+        if (skill == Skill.MAHORAGA) left = Math.max(left, cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.MahoragaSkill.deathLockSeconds(player));
+        return left;
     }
 
     public static void startBurnout(ServerPlayer player) {

@@ -20,6 +20,23 @@ processResources {
 
 loom { accessWidenerPath = file("src/main/resources/sukuna.accesswidener") }
 
+// Dev-only client game tests (screenshots of the domains); never part of the mod jar.
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "sukuna-gametest"
+        enableGameTests = false
+        enableClientGameTests = true
+        eula = true
+    }
+}
+loom {
+    runs {
+        // ./gradlew runClientGameTest -Ponly=void|shrine|clash shoots one scene only.
+        clientGameTest { vmArg "-Dsukuna.only=${project.findProperty('only') ?: ''}" }
+    }
+}
+
 sourceSets {
     checks {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath

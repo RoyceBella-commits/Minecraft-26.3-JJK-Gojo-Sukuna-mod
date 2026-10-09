@@ -12,8 +12,8 @@ public final class StageRules {
     public static final double VOLUME_X3 = Math.cbrt(3.0);
     /** "Twice the range" as twice the volume: radius x cbrt(2). */
     public static final double VOLUME_X2 = Math.cbrt(2.0);
-    /** Both domains share one radius: the 2.1 Void (20 x cbrt 3) doubled in volume, i.e. 20 x cbrt 6 (~36.3). */
-    public static final double DOMAIN_RADIUS = 20.0 * Math.cbrt(6.0);
+    /** Both domains share one radius: 64 blocks, the reach of Malevolent Shrine (since 2.2.6). */
+    public static final double DOMAIN_RADIUS = 64.0;
     /** Lowest share of damage a stage V sorcerer still takes: 1% in general, 10% from Gojo / Sukuna sorcerers. */
     public static final float MIN_TAKEN = 0.01f;
     public static final float MIN_TAKEN_FROM_SORCERER = 0.10f;

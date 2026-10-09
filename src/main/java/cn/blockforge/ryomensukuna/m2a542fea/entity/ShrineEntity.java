@@ -179,7 +179,8 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
             }
         }
         if (this.life >= 100 && this.life % 3 == 0) {
-            for (int i = 0; i < 12; ++i) {
+            // Spread over the 64-block domain, so about three times as many as in the old 36-block one.
+            for (int i = 0; i < 30; ++i) {
                 double ang = this.random.nextDouble() * Math.PI * 2.0;
                 double rr = Math.sqrt(this.random.nextDouble()) * (this.radius - 1.0);
                 double ex = this.anchorX + Math.cos(ang) * rr;

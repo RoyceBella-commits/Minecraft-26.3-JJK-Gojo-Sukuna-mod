@@ -52,6 +52,8 @@ public final class DomainRenderer {
         .withColorTargetState(new ColorTargetState(Optional.of(BlendFunction.TRANSLUCENT),GpuFormat.RGBA8_UNORM,15)).build());
     private static final ShrineModel MODEL = new ShrineModel();
     private static final float RADIUS = (float)ShrineEntity.RADIUS;
+    /** Distance within which a shrine's dome is drawn (inside it or seen from outside). */
+    private static final double VIEW_RANGE = 256.0;
     private static ShrineEntity selected;
     private static float fade;
     private static long frameTime;
@@ -59,10 +61,23 @@ public final class DomainRenderer {
     private static RenderTarget depth, reflection;
     private static StagedVertexBuffer mirrorVertices;
     private static GpuBuffer uniforms;
-    private static final int UNIFORM_SIZE=112;
+    private static final int UNIFORM_SIZE=128;
     private static final ByteBuffer uniformBytes=ByteBuffer.allocateDirect(UNIFORM_SIZE).order(ByteOrder.nativeOrder());
     /** voidCenter is relative to the shrine origin; voidRadius 0 means no Unlimited Void is clashing with it. */
-    private record Frame(Matrix4f inverse, Vec3 cameraRelative, float radius, float seconds, float fade, List<PortBuffers.Batch> mirror, Vec3 voidCenter, float voidRadius) {}
+    private record Frame(Matrix4f inverse, Vec3 cameraRelative, float radius, float seconds, float fade, List<PortBuffers.Batch> mirror, Vec3 voidCenter, float voidRadius, float depthFar, float depthSpan) {}
+
+    /**
+     * How a depth-buffer value maps back to the projection's clip-space z: {@code ndc = far + span * depth}.
+     * 26.3 keeps a reversed depth buffer (near = 1, sky = 0) whatever the projection's own z range is
+     * (OpenGL style -1..1 or 0..1, forward or reversed), so both ends are read off the matrix itself.
+     */
+    static float[] depthMapping(Matrix4f projection) {
+        org.joml.Vector4f nearPoint = projection.transform(new org.joml.Vector4f(0.0f, 0.0f, -0.05f, 1.0f));
+        org.joml.Vector4f farPoint = projection.transform(new org.joml.Vector4f(0.0f, 0.0f, -100000.0f, 1.0f));
+        float near = Math.round(nearPoint.z / nearPoint.w);
+        float far = farPoint.z / farPoint.w;
+        return new float[]{far, near - far};
+    }
 
     public static void init() {
         LevelExtractionEvents.END_EXTRACTION.register(DomainRenderer::extract);
@@ -92,15 +107,16 @@ public final class DomainRenderer {
         if(selected!=null && selected.level()!=ctx.level()) clearFrame();
         Vec3 camera=ctx.camera().position();
         ShrineEntity nearest=null;double best=Double.MAX_VALUE;
-        for(ShrineEntity shrine:ctx.level().getEntities(SukunaMod.SHRINE,new AABB(camera,camera).inflate(RADIUS+8), e->!e.isRemoved())) {
+        // The crimson dome is seen from outside too, so shrines are picked up from afar.
+        for(ShrineEntity shrine:ctx.level().getEntities(SukunaMod.SHRINE,new AABB(camera,camera).inflate(VIEW_RANGE), e->!e.isRemoved())) {
             double distance=shrine.distanceToSqr(camera);
             if(distance<best) {best=distance;nearest=shrine;}
         }
-        boolean current=selected!=null && !selected.isRemoved() && selected.level()==ctx.level() && selected.distanceToSqr(camera)<(RADIUS+6)*(RADIUS+6);
+        boolean current=selected!=null && !selected.isRemoved() && selected.level()==ctx.level() && selected.distanceToSqr(camera)<VIEW_RANGE*VIEW_RANGE;
         if(!current && fade<0.01f) selected=nearest;
         long now=System.nanoTime();float seconds=frameTime==0?0.016f:Math.min(0.1f,(now-frameTime)/1.0E9f);frameTime=now;
         boolean valid=selected!=null && !selected.isRemoved() && selected.level()==ctx.level();
-        float target=valid?1-smooth((float)(Math.sqrt(selected.distanceToSqr(camera))-(RADIUS+2))/4):0;
+        float target=valid?1:0;
         fade+=Mth.clamp(target-fade,-seconds*2.5f,seconds*3);
         if(selected==null || fade<=0.001f) {frame=null;return;}
         float life=selected.getVisualLife(ctx.deltaTracker().getGameTimeDeltaPartialTick(false));
@@ -126,7 +142,8 @@ public final class DomainRenderer {
             if(vr<0.3f||dist>=RADIUS*expansion+vr||dist>=bestVoid) continue;
             bestVoid=dist;voidCenter=vc;voidRadius=vr;
         }
-        frame=new Frame(inverse,new Vec3(camera.x-selected.getX(),camera.y-selected.getY()-0.035,camera.z-selected.getZ()),RADIUS*expansion,life/20,fade,buffers.snapshot(),voidCenter,voidRadius);
+        float[] depthMap=depthMapping(new Matrix4f(cameraState.projectionMatrix));
+        frame=new Frame(inverse,new Vec3(camera.x-selected.getX(),camera.y-selected.getY()-0.035,camera.z-selected.getZ()),RADIUS*expansion,life/20,fade,buffers.snapshot(),voidCenter,voidRadius,depthMap[0],depthMap[1]);
     }
     private static void draw() {
         Frame current=frame;if(current==null)return;
@@ -175,7 +192,8 @@ public final class DomainRenderer {
         uniformBytes.clear();current.inverse.get(0,uniformBytes);uniformBytes.position(64);
         uniformBytes.putFloat((float)current.cameraRelative.x).putFloat((float)current.cameraRelative.y).putFloat((float)current.cameraRelative.z).putFloat(0);
         uniformBytes.putFloat(current.radius).putFloat(current.seconds).putFloat(current.fade).putFloat(RADIUS);
-        uniformBytes.putFloat((float)current.voidCenter.x).putFloat((float)current.voidCenter.y).putFloat((float)current.voidCenter.z).putFloat(current.voidRadius);uniformBytes.flip();
+        uniformBytes.putFloat((float)current.voidCenter.x).putFloat((float)current.voidCenter.y).putFloat((float)current.voidCenter.z).putFloat(current.voidRadius);
+        uniformBytes.putFloat(current.depthFar).putFloat(current.depthSpan).putFloat(0).putFloat(0);uniformBytes.flip();
         encoder.writeToBuffer(uniforms.slice(),uniformBytes);
         try(var pass=encoder.createRenderPass(()->"Sukuna domain composite",main.getColorTextureView(),Optional.empty())) {
             pass.setPipeline(RenderSystem.getCompiledPipeline(PIPELINE));

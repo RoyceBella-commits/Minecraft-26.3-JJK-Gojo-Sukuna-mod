@@ -84,7 +84,7 @@ public final class ClientControlsCheck {
         check(StageRules.blackFlashChance(0) == 0f && StageRules.BLACK_FLASH_MULTIPLIER == 3f, "no Black Flash before awakening; x3 damage");
         check(StageRules.domainTicks(4) == 400 && StageRules.domainTicks(5) == 600, "domains last 20 s at IV and 30 s at V");
         check(Math.abs(Math.pow(StageRules.VOLUME_X3, 3) - 3.0) < 1e-9 && Math.abs(Math.pow(StageRules.VOLUME_X2, 3) - 2.0) < 1e-9, "range scaling is by volume");
-        check(StageRules.DOMAIN_RADIUS > 36.3 && StageRules.DOMAIN_RADIUS < 36.4, "both domains ~36.3 blocks (2.1 Void doubled in volume)");
+        check(StageRules.DOMAIN_RADIUS == 64.0, "both domains reach 64 blocks (the Malevolent Shrine radius)");
         double purple = 4.5 * StageRules.VOLUME_X3 * StageRules.VOLUME_X3;
         check(purple > 9.3 && purple < 9.4, "Hollow Purple radius ~9.4 (x3 volume twice)");
         Adaptation.Entry melee = new Adaptation.Entry("minecraft:player_attack", false, Adaptation.Evolution.NONE, 0);

@@ -85,6 +85,8 @@ implements ModInitializer {
         MahoragaSkill.init();
         BlackFlash.register();
         ServerLivingEntityEvents.ALLOW_DAMAGE.register(Infinity::allowDamage);
+        // Sukuna's own wheel (while his Mahoraga stands) turns fully adapted harm away.
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register(cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.SukunaWheel::allowDamage);
         // Anything held by Unlimited Void cannot strike with its own body.
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((target, source, amount) ->
             !(source.getEntity() != null && source.getEntity() == source.getDirectEntity() && VoidDomainEntity.stunned(source.getEntity())));
@@ -99,6 +101,7 @@ implements ModInitializer {
             CombatSkills.tick();
             Infinity.tickHeld();
             cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.tick();
+            cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.SukunaWheel.tick(server);
             for (ServerLevel world : server.getAllLevels()) {
                 TerrainCuts.tick(world);
             }
@@ -122,6 +125,7 @@ implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             CurseManager.clearTransient();
             GojoSkills.clear();
+            cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.SukunaWheel.clear();
         });
     }
 }

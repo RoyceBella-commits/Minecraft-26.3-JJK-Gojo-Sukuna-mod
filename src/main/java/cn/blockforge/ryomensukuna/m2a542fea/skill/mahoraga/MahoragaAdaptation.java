@@ -154,7 +154,12 @@ public final class MahoragaAdaptation {
         if (entry.effect && (effect = (MobEffect)BuiltInRegistries.MOB_EFFECT.getValue(Identifier.parse(entry.id))) != null) {
             return effect.getDisplayName();
         }
-        String label = switch (entry.id) {
+        return MahoragaAdaptation.damageLabel(entry.id);
+    }
+
+    /** Readable name of a damage type id, as the wheel announces it. */
+    public static Component damageLabel(String id) {
+        String label = switch (id) {
             case "minecraft:mob_attack", "minecraft:mob_attack_no_aggro" -> "\u751f\u7269\u8fd1\u6218";
             case "minecraft:player_attack" -> "\u73a9\u5bb6\u8fd1\u6218";
             case "minecraft:player_explosion", "minecraft:explosion" -> "\u7206\u70b8";
@@ -169,7 +174,10 @@ public final class MahoragaAdaptation {
             case "minecraft:magic", "minecraft:indirect_magic" -> "\u9b54\u6cd5";
             case "minecraft:wither" -> "\u51cb\u96f6";
             case "minecraft:out_of_world" -> "\u865a\u7a7a";
-            default -> entry.id;
+            case "sukuna:world_cut" -> "\u4e16\u754c\u65a9";
+            case "sukuna:sure_hit" -> "\u9886\u57df\u5fc5\u4e2d";
+            case "sukuna:fused_purple" -> "\u5408\u6210\u8308";
+            default -> id;
         };
         return Component.literal((String)label);
     }

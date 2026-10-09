@@ -34,6 +34,9 @@ public final class SukunaNet {
     public static final Identifier C2S_QUICK = SukunaMod.id("quick");
     public static final Identifier S2C_DANGER = SukunaMod.id("danger");
     public static final Identifier S2C_FIST = SukunaMod.id("fist");
+    /** Sukuna's own adaptation wheel: entity id, shown, completed stages, game time of the last turn. */
+    public static final Identifier S2C_WHEEL = SukunaMod.id("wheel");
+    public static final int WHEEL_LENGTH = 17;
     public static final int FIST_LENGTH = 49;
     public static final int STATE_LENGTH = 57;
     public static final byte FAIL_LOCKED = 0;
@@ -78,6 +81,19 @@ public final class SukunaNet {
             packet.writeDouble(direction.z);
             packet.writeFloat(charge);
             SukunaPackets.send(viewer, S2C_PUNCH, packet);
+        }
+    }
+
+    /** Sukuna's adaptation wheel over {@code bearer}'s head, for every client within 256 blocks. */
+    public static void wheel(net.minecraft.server.level.ServerLevel level, net.minecraft.world.entity.Entity bearer, boolean shown, int steps, long turnedAt) {
+        for (ServerPlayer viewer : level.players()) {
+            if (!ServerPlayNetworking.canSend(viewer, S2C_WHEEL) || viewer.distanceToSqr(bearer) > 65536.0) continue;
+            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+            buf.writeInt(bearer.getId());
+            buf.writeBoolean(shown);
+            buf.writeInt(steps);
+            buf.writeLong(turnedAt);
+            SukunaPackets.send(viewer, S2C_WHEEL, buf);
         }
     }
 

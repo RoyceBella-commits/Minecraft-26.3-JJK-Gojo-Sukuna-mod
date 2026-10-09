@@ -30,6 +30,7 @@ public final class SukunaPackets {
         register(SukunaNet.S2C_DANGER, 28, false);
         register(SukunaNet.S2C_FEEDBACK, 5, false);
         register(SukunaNet.S2C_FIST, SukunaNet.FIST_LENGTH, false);
+        register(SukunaNet.S2C_WHEEL, SukunaNet.WHEEL_LENGTH, false);
     }
     private static void register(Identifier id, int length, boolean c2s) {
         var type = new CustomPacketPayload.Type<Payload>(id);

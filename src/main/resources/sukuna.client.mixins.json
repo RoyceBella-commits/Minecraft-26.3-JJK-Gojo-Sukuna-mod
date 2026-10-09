@@ -6,7 +6,8 @@
     "PlayerPoseMixin",
     "HeldCastMixin",
     "CameraShakeMixin",
-    "SixEyesGlowMixin"
+    "SixEyesGlowMixin",
+    "VoidTerrainMixin"
   ],
   "injectors": {
     "defaultRequire": 1

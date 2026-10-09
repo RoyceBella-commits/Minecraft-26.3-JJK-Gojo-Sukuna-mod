@@ -24,6 +24,8 @@ implements ClientModInitializer {
         ChargeInput.init();
         DomainPostFx.init();
         CastVisuals.init();
+        cn.blockforge.ryomensukuna.m2a542fea.client.VoidSight.init();
+        cn.blockforge.ryomensukuna.m2a542fea.client.render.WheelRenderer.init();
         cn.blockforge.ryomensukuna.m2a542fea.client.SixEyesClient.init();
         DomainRenderer.init();
     }

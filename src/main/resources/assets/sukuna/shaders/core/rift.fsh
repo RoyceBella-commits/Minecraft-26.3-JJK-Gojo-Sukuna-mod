@@ -53,6 +53,25 @@ vec3 space(vec3 d) {
         vec3 tone = mix(vec3(0.72, 0.8, 1.0), vec3(1.0, 0.96, 0.92), fract(h * 13.7));
         col += star * tone * (layer == 0 ? 1.3 : 0.6);
     }
+    // A galaxy band across the whole sky: dense pale starlight with dark dust lanes, pearl-white
+    // and pink ribbons, brightest towards its core.
+    vec3 axis = normalize(vec3(0.32, 0.86, 0.40));
+    float across = dot(d, axis);
+    float galaxy = exp(-across * across * 26.0);
+    vec3 core = normalize(cross(axis, vec3(0.0, 0.0, 1.0)));
+    float toward = 0.5 + 0.5 * dot(d, core);
+    float dust = fbm3(d * 7.5 + vec3(3.1, 0.7, 5.3));
+    float lanes = smoothstep(0.45, 0.72, dust) * exp(-across * across * 90.0);
+    float glow = galaxy * (0.35 + 0.65 * toward * toward) * (1.0 - 0.85 * lanes);
+    col += mix(vec3(0.22, 0.24, 0.48), vec3(0.95, 0.90, 0.98), toward * galaxy) * glow * 0.55;
+    float ribbon = fbm3(d * 3.4 + vec3(neb * 2.0));
+    col += vec3(1.0, 0.42, 0.72) * galaxy * smoothstep(0.55, 0.8, ribbon) * 0.22;
+    col += vec3(0.92, 0.95, 1.0) * galaxy * smoothstep(0.62, 0.85, wisp) * 0.18;
+    // Fine star dust packed into the band.
+    vec3 g = d * 420.0;
+    float h = hash3(floor(g));
+    float speck = step(0.86, h) * (1.0 - smoothstep(0.0, 0.32, length(fract(g) - 0.5)));
+    col += vec3(0.9, 0.92, 1.0) * speck * galaxy * (0.5 + 0.5 * toward);
     return col;
 }
 

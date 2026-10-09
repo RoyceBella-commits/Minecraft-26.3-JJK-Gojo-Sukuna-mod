@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "sukuna-gametest",
+  "version": "1.0.0",
+  "name": "JJK Gojo x Sukuna - client screenshot tests",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": ["cn.blockforge.ryomensukuna.gametest.DomainShots"]
+  },
+  "depends": { "sukuna": "*" }
+}

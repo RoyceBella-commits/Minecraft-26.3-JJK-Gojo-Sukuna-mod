@@ -29,6 +29,8 @@ public final class DamageTaken {
 
     public static float apply(LivingEntity target, DamageSource source, float amount) {
         if (amount <= 0.0f || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return amount;
+        // Sukuna's own adaptation wheel (while his Mahoraga stands) takes its share first.
+        amount = cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.SukunaWheel.scale(target, source, amount);
         int stage;
         if (target instanceof ServerPlayer p) {
             CurseState s = CurseManager.of(p);

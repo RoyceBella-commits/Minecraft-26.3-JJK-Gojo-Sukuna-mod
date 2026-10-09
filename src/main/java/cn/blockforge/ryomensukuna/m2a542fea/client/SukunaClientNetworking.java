@@ -53,6 +53,13 @@ public final class SukunaClientNetworking {
             boolean flash = buf.readBoolean();
             client.execute(() -> CastVisuals.fist(at, dir, flash));
         });
+        SukunaClientPackets.receive(cn.blockforge.ryomensukuna.m2a542fea.net.SukunaNet.S2C_WHEEL, (client, buf) -> {
+            int entityId = buf.readInt();
+            boolean shown = buf.readBoolean();
+            int steps = buf.readInt();
+            long turnedAt = buf.readLong();
+            client.execute(() -> cn.blockforge.ryomensukuna.m2a542fea.client.render.WheelRenderer.receive(entityId, shown, steps, turnedAt));
+        });
         SukunaClientPackets.receive(S2C_DANGER, (client, buf) -> {
             int skillId = buf.readInt();
             Vec3 from = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());

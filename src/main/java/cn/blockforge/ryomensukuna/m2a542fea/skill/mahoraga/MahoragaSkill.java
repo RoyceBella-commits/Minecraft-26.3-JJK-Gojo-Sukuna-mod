@@ -7,6 +7,7 @@ import cn.blockforge.ryomensukuna.m2a542fea.entity.SlashFxEntity;
 import cn.blockforge.ryomensukuna.m2a542fea.net.SukunaNet;
 import cn.blockforge.ryomensukuna.m2a542fea.skill.ChannelCasting;
 import cn.blockforge.ryomensukuna.m2a542fea.util.CurseFx;
+import com.mojang.serialization.Codec;
 import java.util.List;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
@@ -22,10 +23,47 @@ public final class MahoragaSkill {
     public static final AttachmentType<CompoundTag> STORE = AttachmentRegistry.<CompoundTag>builder()
         .persistent(CompoundTag.CODEC).copyOnDeath().buildAndRegister(SukunaMod.id("mahoraga_store"));
 
+    /**
+     * Game time before which this caster cannot call Mahoraga again because the last one was destroyed.
+     * Kept on the owner (player or Sukuna NPC) and survives death and relogging.
+     */
+    public static final AttachmentType<Long> DEATH_LOCK = AttachmentRegistry.<Long>builder()
+        .persistent(Codec.LONG).copyOnDeath().buildAndRegister(SukunaMod.id("mahoraga_death_lock"));
+    /** A destroyed Mahoraga cannot be called again for 5 minutes (the usual cooldown is 30 s). */
+    public static final int DEATH_LOCK_TICKS = 6000;
+
     private MahoragaSkill() {
     }
 
     public static void init() {
+    }
+
+    /** Seconds left before {@code owner} may call Mahoraga again after losing one; 0 when free. */
+    public static float deathLockSeconds(LivingEntity owner) {
+        Long until = owner.getAttached(DEATH_LOCK);
+        if (until == null) return 0.0f;
+        long left = until - owner.level().getGameTime();
+        return left > 0L ? left / 20.0f : 0.0f;
+    }
+
+    /** Mahoraga destroyed: its master's wheel fades and the long re-summon lock begins. */
+    public static void onDeath(MahoragaEntity mahoraga) {
+        if (!(mahoraga.level() instanceof net.minecraft.server.level.ServerLevel level)) return;
+        LivingEntity owner = null;
+        try {
+            java.util.UUID id = java.util.UUID.fromString(mahoraga.ownerUuid());
+            owner = level.getServer().getPlayerList().getPlayer(id);
+            if (owner == null && level.getEntity(id) instanceof LivingEntity living) owner = living;
+        } catch (IllegalArgumentException ignored) {
+            // No valid owner.
+        }
+        if (owner == null) return;
+        owner.setAttached(DEATH_LOCK, owner.level().getGameTime() + DEATH_LOCK_TICKS);
+        SukunaWheel.end(owner);
+        if (owner instanceof ServerPlayer player) {
+            SukunaNet.actionBar(player, "sukuna.hint.mahoraga_lost", DEATH_LOCK_TICKS / 20);
+            cn.blockforge.ryomensukuna.m2a542fea.skill.CurseManager.sync(player);
+        }
     }
 
     public static void cast(ServerPlayer player, float charge) {
@@ -76,6 +114,8 @@ public final class MahoragaSkill {
         owner.level().addFreshEntity((Entity)m);
         SlashFxEntity.spawn(owner.level(), anchor.x, anchor.y + 0.015, anchor.z, 5, 0.0f, 90.0f, 2.8f);
         owner.level().playSound(null, anchor.x, anchor.y, anchor.z, SukunaSounds.MAHORAGA_SPAWN, SoundSource.HOSTILE, 2.0f, 0.8f);
+        // Sukuna bears the wheel too, for as long as this Mahoraga stands.
+        SukunaWheel.attach(owner, m);
         return m;
     }
 }

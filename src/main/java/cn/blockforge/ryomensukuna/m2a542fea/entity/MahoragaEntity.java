@@ -674,6 +674,7 @@ extends PathfinderMob {
             } catch (IllegalArgumentException ignored) {
                 // No valid owner.
             }
+            cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.MahoragaSkill.onDeath(this);
         }
         super.die(cause);
     }
