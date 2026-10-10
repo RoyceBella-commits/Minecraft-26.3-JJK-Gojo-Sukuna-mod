@@ -64,7 +64,7 @@ public final class DomainRenderer {
     private static final int UNIFORM_SIZE=128;
     private static final ByteBuffer uniformBytes=ByteBuffer.allocateDirect(UNIFORM_SIZE).order(ByteOrder.nativeOrder());
     /** voidCenter is relative to the shrine origin; voidRadius 0 means no Unlimited Void is clashing with it. */
-    private record Frame(Matrix4f inverse, Vec3 cameraRelative, float radius, float seconds, float fade, List<PortBuffers.Batch> mirror, Vec3 voidCenter, float voidRadius, float depthFar, float depthSpan) {}
+    private record Frame(Matrix4f inverse, Vec3 cameraRelative, float radius, float seconds, float fade, List<PortBuffers.Batch> mirror, Vec3 voidCenter, float voidRadius, float depthFar, float depthSpan, boolean ourVoid) {}
 
     /**
      * How a depth-buffer value maps back to the projection's clip-space z: {@code ndc = far + span * depth}.
@@ -143,7 +143,10 @@ public final class DomainRenderer {
             bestVoid=dist;voidCenter=vc;voidRadius=vr;
         }
         float[] depthMap=depthMapping(new Matrix4f(cameraState.projectionMatrix));
-        frame=new Frame(inverse,new Vec3(camera.x-selected.getX(),camera.y-selected.getY()-0.035,camera.z-selected.getZ()),RADIUS*expansion,life/20,fade,buffers.snapshot(),voidCenter,voidRadius,depthMap[0],depthMap[1]);
+        // Other mods may put their own domain in the Void's place (the Fate mod's marble does); only
+        // our Unlimited Void gets its cosmos painted on its side, any other rival is simply left its side.
+        boolean ourVoid=voidRadius>0;
+        frame=new Frame(inverse,new Vec3(camera.x-selected.getX(),camera.y-selected.getY()-0.035,camera.z-selected.getZ()),RADIUS*expansion,life/20,fade,buffers.snapshot(),voidCenter,voidRadius,depthMap[0],depthMap[1],ourVoid);
     }
     private static void draw() {
         Frame current=frame;if(current==null)return;
@@ -193,7 +196,7 @@ public final class DomainRenderer {
         uniformBytes.putFloat((float)current.cameraRelative.x).putFloat((float)current.cameraRelative.y).putFloat((float)current.cameraRelative.z).putFloat(0);
         uniformBytes.putFloat(current.radius).putFloat(current.seconds).putFloat(current.fade).putFloat(RADIUS);
         uniformBytes.putFloat((float)current.voidCenter.x).putFloat((float)current.voidCenter.y).putFloat((float)current.voidCenter.z).putFloat(current.voidRadius);
-        uniformBytes.putFloat(current.depthFar).putFloat(current.depthSpan).putFloat(0).putFloat(0);uniformBytes.flip();
+        uniformBytes.putFloat(current.depthFar).putFloat(current.depthSpan).putFloat(current.ourVoid?1:0).putFloat(0);uniformBytes.flip();
         encoder.writeToBuffer(uniforms.slice(),uniformBytes);
         try(var pass=encoder.createRenderPass(()->"Sukuna domain composite",main.getColorTextureView(),Optional.empty())) {
             pass.setPipeline(RenderSystem.getCompiledPipeline(PIPELINE));

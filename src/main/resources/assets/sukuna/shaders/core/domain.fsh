@@ -9,6 +9,7 @@ layout(std140) uniform DomainUniforms {
     // Overlapping Unlimited Void: centre relative to the shrine, current radius (0 = none).
     vec4 VoidData;
     // Depth buffer value -> projection z: ndc = x + y * depth (26.3 depth is reversed: sky = 0).
+    // z = 1 when the rival is our Unlimited Void; 0 for another mod's domain (drawn by that mod).
     vec4 DepthMap;
 };
 layout(location=0) in vec2 screenUv;
@@ -51,7 +52,7 @@ vec3 reconstruct(float d) {
 }
 
 // The crimson mist where the blood sky meets the water: the dome's waterline and the far water share it.
-const vec3 MIST = vec3(.30, .026, .046);
+const vec3 MIST = vec3(.40, .04, .06);
 
 // Blood-red sky: luminous crimson cloud banks with dark gaps between them, lit scarlet edges and
 // thin veins, sinking into the crimson mist at the horizon.
@@ -61,9 +62,9 @@ vec3 sky(vec3 direction, float t) {
     float banks = cloud(p*1.9 + vec3(broad*.9, t*.012, -t*.008));
     float detail = cloud(p*4.3 + vec3(0, t*.020, broad));
     float lit = smoothstep(.36, .76, broad*.55 + banks*.45);
-    vec3 color = mix(vec3(.05, .0, .008), vec3(.62, .015, .05), lit);
-    color = mix(color, vec3(1.0, .22, .12), pow(clamp(detail*lit*1.25 - .25, 0.0, 1.0), 2.0) * .55);
-    color += vec3(.35, .01, .03) * pow(clamp(detail*1.3, 0.0, 1.0), 3.0) * .4;
+    vec3 color = mix(vec3(.09, .004, .014), vec3(.82, .04, .07), lit);
+    color = mix(color, vec3(1.0, .32, .2), pow(clamp(detail*lit*1.25 - .22, 0.0, 1.0), 2.0) * .7);
+    color += vec3(.45, .03, .05) * pow(clamp(detail*1.3, 0.0, 1.0), 3.0) * .5;
     float h = clamp(direction.y, 0.0, 1.0);
     color *= .8 + .35*smoothstep(.0, .35, h) - .2*smoothstep(.6, 1.0, h);
     return mix(MIST, color, smoothstep(.0, .16, h));
@@ -122,7 +123,7 @@ vec4 seamGlow(vec3 x, float s, float t, float viewDistance) {
 }
 
 // The shrine's sky and water are drawn a little see-through.
-const float SKY_OPACITY = .9;
+const float SKY_OPACITY = .93;
 const float WATER_OPACITY = .84;
 
 void main() {
@@ -158,7 +159,8 @@ void main() {
         vec2 p = floorPoint.xz;
         if (s < 0.0) {
             // The Void's half of a clash has no ground either: its cosmos goes on below.
-            if (length(floorPoint - VoidData.xyz) > VoidData.w) discard;
+            // Another mod's domain draws its own half.
+            if (DepthMap.z < .5 || length(floorPoint - VoidData.xyz) > VoidData.w) discard;
             vec4 g = seamGlow(floorPoint, s, t, floorDistance);
             fragColor = vec4(mix(space(rd), g.rgb, g.a * .9), DomainData.z);
             return;
@@ -169,7 +171,7 @@ void main() {
         vec3 reflected = normalize(vec3(rd.x + swell.x, -rd.y, rd.z + swell.y));
         float fresnel = .32 + .68 * pow(1.0 - clamp(-rd.y, 0.0, 1.0), 3.0);
         float depthTone = smoothstep(.2, .8, cloud(vec3(p*.05, t*.01)));
-        color = mix(vec3(.002, .03, .04), vec3(.006, .21, .25), depthTone);
+        color = mix(vec3(.004, .05, .06), vec3(.01, .28, .32), depthTone);
         color += vec3(.006, .16, .18) * pow(cloud(vec3(p*.18 + swell*6.0, t*.012)), 2.0);
         // Turquoise water mirroring the crimson clouds: the reflection grows towards the horizon.
         color = mix(color, sky(reflected, t) * vec3(.9, .82, .88) + vec3(.0, .04, .05), fresnel * .78);
@@ -189,7 +191,7 @@ void main() {
         float s = seam(shell);
         if (s < 0.0) {
             // The Void's own shell shows here; only the seam's glow is laid over it.
-            if (s < -3.0) discard;
+            if (s < -3.0 || DepthMap.z < .5) discard;
             vec4 g = seamGlow(shell, s, t, shellDistance);
             if (g.a < .01) discard;
             fragColor = vec4(g.rgb, g.a * .9 * DomainData.z);

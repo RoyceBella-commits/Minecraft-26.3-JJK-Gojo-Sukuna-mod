@@ -49,4 +49,10 @@ tasks.register('verifyClientControls', JavaExec) {
     mainClass = 'cn.blockforge.ryomensukuna.client.ClientControlsCheck'
     args layout.buildDirectory.dir('client-control-checks').get().asFile.absolutePath
 }
-tasks.named('check') { dependsOn 'verifyClientControls' }
+tasks.register('verifyShaders', JavaExec) {
+    dependsOn checksClasses
+    classpath = sourceSets.checks.runtimeClasspath
+    mainClass = 'cn.blockforge.ryomensukuna.client.ShaderCompileCheck'
+    args file('src/main/resources/assets/sukuna/shaders/core').absolutePath
+}
+tasks.named('check') { dependsOn 'verifyClientControls', 'verifyShaders' }

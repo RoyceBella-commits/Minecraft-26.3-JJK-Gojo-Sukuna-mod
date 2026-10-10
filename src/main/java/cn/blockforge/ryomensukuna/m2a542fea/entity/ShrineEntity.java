@@ -38,6 +38,8 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
 
     public static final int DURATION = Integer.MAX_VALUE;
     public static final int ASSEMBLY_TICKS = 100;
+    /** Sure-hit slash damage, every 4 ticks to everything in the domain (was 5 before 2.2.7). */
+    public static final float SURE_HIT_DAMAGE = 6.0f;
     private static final EntityDataAccessor<Long> START_TIME = SynchedEntityData.defineId(ShrineEntity.class, (EntityDataSerializer)EntityDataSerializers.LONG);
     /** Same radius as Unlimited Void (about 36 blocks). */
     public static final double RADIUS = cn.blockforge.ryomensukuna.m2a542fea.progression.StageRules.DOMAIN_RADIUS;
@@ -164,7 +166,7 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
             for (LivingEntity target : targets) {
                 // In a clash the rival caster is untouched; everyone else suffers both domains.
                 if (CurseManager.protectedTarget(owner, target) || target.getUUID().equals(cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.clashRival(this))) continue;
-                CurseManager.damage(this.level(), owner, target, 5.0f, cn.blockforge.ryomensukuna.m2a542fea.skill.SukunaDamage.sureHit(this.level(), owner), this.castId, cn.blockforge.ryomensukuna.m2a542fea.gojo.InfinityBreach.Category.SLASH);
+                CurseManager.damage(this.level(), owner, target, SURE_HIT_DAMAGE, cn.blockforge.ryomensukuna.m2a542fea.skill.SukunaDamage.sureHit(this.level(), owner), this.castId, cn.blockforge.ryomensukuna.m2a542fea.gojo.InfinityBreach.Category.SLASH);
                 this.spawnRandomSlashFx(target);
                 this.level().playSound(null, target.getX(), target.getY() + 0.8, target.getZ(), SukunaSounds.DOMAIN_SLICE, SoundSource.PLAYERS, 1.0f, 0.9f + this.random.nextFloat() * 0.2f);
             }
@@ -186,7 +188,8 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
                 double ex = this.anchorX + Math.cos(ang) * rr;
                 double ez = this.anchorZ + Math.sin(ang) * rr;
                 double ey = this.anchorY + 0.8 + this.random.nextDouble() * 7.0;
-                SlashFxEntity.spawn(this.level(), ex, ey, ez, 1, this.random.nextFloat() * 360.0f, this.random.nextFloat() * 70.0f - 35.0f, 1.8f + this.random.nextFloat() * 2.5f);
+                // Red and white slashes in turn: white blades and crimson ones with a white-hot core.
+                SlashFxEntity.spawn(this.level(), ex, ey, ez, i % 2 == 0 ? 1 : SlashFxEntity.CLASH, this.random.nextFloat() * 360.0f, this.random.nextFloat() * 70.0f - 35.0f, 1.8f + this.random.nextFloat() * 2.5f);
             }
             Level ang = this.level();
             if (ang instanceof ServerLevel) {
@@ -293,7 +296,7 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
     }
 
     private void spawnRandomSlashFx(LivingEntity target) {
-        SlashFxEntity.spawn(this.level(), target.getX() + (this.random.nextDouble() - 0.5) * 4.0, target.getY() + 0.4 + this.random.nextDouble() * 1.8, target.getZ() + (this.random.nextDouble() - 0.5) * 4.0, 1, this.random.nextFloat() * 360.0f, this.random.nextFloat() * 60.0f - 30.0f, 1.0f);
+        SlashFxEntity.spawn(this.level(), target.getX() + (this.random.nextDouble() - 0.5) * 4.0, target.getY() + 0.4 + this.random.nextDouble() * 1.8, target.getZ() + (this.random.nextDouble() - 0.5) * 4.0, this.random.nextBoolean() ? 1 : SlashFxEntity.CLASH, this.random.nextFloat() * 360.0f, this.random.nextFloat() * 60.0f - 30.0f, 1.0f);
     }
 
     private void syncParticles(ParticleOptions effect, double x, double y, double z, float ox, float oy, float oz, float speed, int count) {

@@ -137,10 +137,11 @@ public final class GojoRenderers {
                 }
             }
             if (!inside) return;
-            // A vast black hole opens in the sky behind the caster (the way they faced when casting).
+            // A vast black hole opens in the sky behind the caster (the way they faced when casting):
+            // its swirl fills much of that half of the sky, the horizon alone about 40 degrees across.
             Vec3 behind = Vec3.directionFromRotation(0.0f, e.getYRot()).scale(-1.0);
-            Vec3 hole = c.add(behind.scale(radius * 0.55)).add(0.0, radius * 0.28, 0.0);
-            SlashShader.blackHole(pose, buffers, hole, axes[0], axes[1], radius * 0.36f, visibility, (age % 200.0f) / 200.0f, clip);
+            Vec3 hole = c.add(behind.scale(radius * 0.7)).add(0.0, radius * 0.3, 0.0);
+            SlashShader.blackHole(pose, buffers, hole, axes[0], axes[1], radius * 0.85f, visibility, (age % 200.0f) / 200.0f, clip);
             this.stars(pose, buffers, c, radius, age, visibility, clip);
         }
 

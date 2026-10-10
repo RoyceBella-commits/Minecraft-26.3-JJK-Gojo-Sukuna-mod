@@ -97,14 +97,15 @@ void main() {
             float vis = clamp((kind - 0.8) / 0.2, 0.0, 1.0);
             if (age < 0.5) {
                 // Seen from outside: a black sphere.
-                fragColor = vec4(vec3(0.0, 0.0, 0.004), 0.97 * vis) * ColorModulator;
+                fragColor = vec4(vec3(0.0, 0.0, 0.004), vis) * ColorModulator;
                 return;
             }
             // Seen from inside: uv carry longitude / latitude over the whole sphere.
             float th = uv.y * 3.14159265;
             float ph = uv.x * 6.28318531;
             vec3 dir = vec3(sin(th) * cos(ph), cos(th), sin(th) * sin(ph));
-            fragColor = vec4(space(dir), 0.985 * vis) * ColorModulator;
+            // Fully opaque once open: none of Minecraft's own sky shows through the Void's cosmos.
+            fragColor = vec4(space(dir), vis) * ColorModulator;
             return;
         }
         if (kind > 0.3 && kind < 0.4) {
@@ -127,8 +128,14 @@ void main() {
             float dglow = (r - 0.44) / 0.035;
             float ring = exp(-dring * dring) * 1.3 + exp(-dglow * dglow) * 0.3;
             col += vec3(1.0, 0.98, 0.95) * ring;
+            // A thin gold-pink fringe hugs the horizon, a cyan one sits just outside the bright ring.
+            float df = (r - horizon - 0.022) / 0.012;
+            col += vec3(1.0, 0.72, 0.62) * exp(-df * df) * 0.9;
+            float dc = (r - 0.475) / 0.016;
+            col += vec3(0.35, 0.85, 1.0) * exp(-dc * dc) * 0.45;
+            // The swirl stays see-through between its streaks, so the Void's stars still show around it.
             float edge = 1.0 - smoothstep(0.78, 1.0, r);
-            float alphaBh = clamp(max(wisps * 1.2, ring), 0.0, 1.0) * edge;
+            float alphaBh = clamp(max(wisps * 1.3, ring), 0.0, 1.0) * edge;
             // Nothing escapes the horizon: it hides whatever is behind it.
             float hole = 1.0 - smoothstep(horizon - 0.01, horizon + 0.01, r);
             col *= 1.0 - hole;

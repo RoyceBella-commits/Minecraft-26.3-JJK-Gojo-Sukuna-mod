@@ -7,6 +7,6 @@
   "fabric_loom": "1.17.21",
   "gradle": "9.6.0",
   "mod_id": "sukuna",
-  "mod_version": "2.2.6+mc26.3",
+  "mod_version": "2.2.7+mc26.3",
   "status": "build + 103 logic checks passed; 2.2.1 not launched here, gameplay acceptance by the user"
 }
