@@ -2,6 +2,7 @@ package cn.blockforge.ryomensukuna.m2a542fea.entity;
 
 import cn.blockforge.ryomensukuna.m2a542fea.SukunaSounds;
 import cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash;
+import cn.blockforge.ryomensukuna.m2a542fea.combat.DomainTerrain;
 import cn.blockforge.ryomensukuna.m2a542fea.entity.npc.JjkNpcEntity;
 import cn.blockforge.ryomensukuna.m2a542fea.net.SukunaNet;
 import cn.blockforge.ryomensukuna.m2a542fea.progression.Progression;
@@ -33,6 +34,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import cn.blockforge.ryomensukuna.m2a542fea.api.DomainHooks;
 
 /**
  * Unlimited Void: a closed black sphere. Every enemy inside is held completely still for as long
@@ -134,8 +136,8 @@ public class VoidDomainEntity extends TechniqueEntity implements DomainClash.Col
 
     /** Players, monsters, bosses, hostile technique users and foreign Mahoraga; never allies or bystanders. */
     private boolean isEnemy(LivingEntity e, LivingEntity owner) {
-        if (!this.validTarget(e, owner)) return false;
-        if (e instanceof Player || e instanceof Enemy) return true;
+        if (!this.validTarget(e, owner) || DomainHooks.immune(e)) return false;
+        if (e instanceof Player || e instanceof Enemy || DomainHooks.hostileTo(e, owner)) return true;
         if (e instanceof MahoragaEntity m) return owner == null || !owner.getStringUUID().equals(m.ownerUuid());
         // A technique NPC is only an enemy of a player caster if it would fight them.
         if (e instanceof JjkNpcEntity npc) return !(owner instanceof Player) || npc.canHarm(owner) || npc.getTarget() == owner;
@@ -156,6 +158,8 @@ public class VoidDomainEntity extends TechniqueEntity implements DomainClash.Col
             if (owner != null) {
                 DomainClash.register(owner, this, c, RADIUS, true);
                 if (player != null) Progression.recordDomainExpanded(player);
+                // The sphere becomes a superflat arena for the domain's length; enemies close by are drawn in.
+                DomainTerrain.openFlat(this, owner, c, RADIUS, groundBelow(level, owner), e -> this.isEnemy(e, owner));
             }
             level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 3.0f, 0.45f);
             level.playSound(null, c.x, c.y, c.z, SoundEvents.CONDUIT_ACTIVATE, SoundSource.PLAYERS, 3.0f, 0.5f);
@@ -176,6 +180,11 @@ public class VoidDomainEntity extends TechniqueEntity implements DomainClash.Col
         if (this.life <= OPEN_TICKS) this.expansionFx(level, c, current);
         long now = level.getGameTime();
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(current))) {
+            if (DomainHooks.immune(e)) {
+                // Shrugged the domain off: let go, and never snapped back to where it was held.
+                this.frozenAt.remove(e.getUUID());
+                continue;
+            }
             if (e.distanceToSqr(c) > current * current || !this.isEnemy(e, owner)) continue;
             // In a clash the rival caster is untouched; everyone else suffers both domains.
             if (e.getUUID().equals(DomainClash.clashRival(this))) continue;
@@ -188,6 +197,18 @@ public class VoidDomainEntity extends TechniqueEntity implements DomainClash.Col
         if (player != null && d != null && this.life % 20 == 0) {
             SukunaNet.actionBar(player, "sukuna.hint.domain_stability", Math.round(d.stability() * 100.0f), Math.round(this.shell() / SHELL_MAX * 100.0f), (this.duration - this.life) / 20);
         }
+    }
+
+    /** Y of the first solid block at or below the caster's feet (within 24 blocks): the arena floor. */
+    static int groundBelow(ServerLevel level, LivingEntity caster) {
+        net.minecraft.core.BlockPos.MutableBlockPos p = new net.minecraft.core.BlockPos.MutableBlockPos();
+        int x = net.minecraft.util.Mth.floor(caster.getX()), z = net.minecraft.util.Mth.floor(caster.getZ());
+        int start = net.minecraft.util.Mth.floor(caster.getY() - 0.01);
+        for (int y = start; y > start - 24 && y >= level.getMinY(); --y) {
+            p.set(x, y, z);
+            if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty()) return y;
+        }
+        return start - 1;
     }
 
     /** Complete immobilisation: pinned in place, no velocity, no pathing, no target, no strength. */
@@ -244,6 +265,7 @@ public class VoidDomainEntity extends TechniqueEntity implements DomainClash.Col
         this.entityData.set(CLOSE_AT, this.life);
         ServerPlayer player = this.playerOwner();
         DomainClash.unregister(this);
+        DomainTerrain.close(this.getUUID());
         for (UUID id : this.frozenAt.keySet()) STUNNED.remove(id);
         if (this.level() instanceof ServerLevel level) {
             Vec3 c = this.position();

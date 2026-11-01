@@ -55,4 +55,9 @@ tasks.register('verifyShaders', JavaExec) {
     mainClass = 'cn.blockforge.ryomensukuna.client.ShaderCompileCheck'
     args file('src/main/resources/assets/sukuna/shaders/core').absolutePath
 }
-tasks.named('check') { dependsOn 'verifyClientControls', 'verifyShaders' }
+tasks.register('verifyMixinTargets', JavaExec) {
+    dependsOn checksClasses
+    classpath = sourceSets.checks.runtimeClasspath
+    mainClass = 'cn.blockforge.ryomensukuna.client.MixinTargetCheck'
+}
+tasks.named('check') { dependsOn 'verifyClientControls', 'verifyShaders', 'verifyMixinTargets' }

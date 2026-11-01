@@ -155,10 +155,15 @@ extends Entity {
             this.hit.add(e2.getUUID());
             target.setInvulnerableTime(0);
             if (this.getMode() == 2) {
-                // World Cut: one clean cut through space; ~1000 to creatures, 60-70 to players.
+                // World Cut: one clean cut through space; 75% of a Gojo / Sukuna character's whole health,
+                // otherwise ~1000 to creatures and 60-70 to players (other mods' characters included).
                 Entity src = this.owner != null ? this.owner : this;
-                CurseManager.damage(this.level(), src, target, SukunaDamage.finisher(target, this.random), SukunaDamage.worldCut(this.level(), src),
-                    src instanceof net.minecraft.server.level.ServerPlayer sp ? cn.blockforge.ryomensukuna.m2a542fea.progression.Progression.latestCast(sp) : -1);
+                int cast = src instanceof net.minecraft.server.level.ServerPlayer sp ? cn.blockforge.ryomensukuna.m2a542fea.progression.Progression.latestCast(sp) : -1;
+                if (cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.character(target) && this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                    cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.strikeCharacter(sl, src, target, SukunaDamage.worldCut(this.level(), src), cast, cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.CHARACTER_LOSS);
+                } else {
+                    CurseManager.damage(this.level(), src, target, SukunaDamage.finisher(target, this.random), SukunaDamage.worldCut(this.level(), src), cast);
+                }
             } else {
                 CurseManager.curseDamage(this.level(), (Entity)(this.owner != null ? this.owner : this), target, this.getDamage(), cn.blockforge.ryomensukuna.m2a542fea.gojo.InfinityBreach.Category.SLASH);
                 SlashFxEntity.spawn(this.level(), e2.getX(), e2.getY(0.5), e2.getZ(), 1, this.getYRot(), this.getXRot(), 2.0f + this.getCharge());

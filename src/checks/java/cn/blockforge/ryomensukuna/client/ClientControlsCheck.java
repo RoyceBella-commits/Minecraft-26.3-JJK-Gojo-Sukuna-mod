@@ -3,6 +3,8 @@ package cn.blockforge.ryomensukuna.client;
 import cn.blockforge.ryomensukuna.m2a542fea.client.InputGate;
 import cn.blockforge.ryomensukuna.m2a542fea.client.ChargeSession;
 import cn.blockforge.ryomensukuna.m2a542fea.client.HudPreferences;
+import cn.blockforge.ryomensukuna.m2a542fea.combat.DuelRules;
+import cn.blockforge.ryomensukuna.m2a542fea.entity.npc.NpcTactics;
 import com.google.gson.JsonParser;
 import cn.blockforge.ryomensukuna.m2a542fea.progression.StageRules;
 import cn.blockforge.ryomensukuna.m2a542fea.skill.CurseState;
@@ -69,7 +71,9 @@ public final class ClientControlsCheck {
         check(access.lowFx() && access.reduceShake() && !access.noFlash(),"accessibility flags read from config");
         progression();
         growthAndBalance();
-        System.out.println("PASS: "+checks+" client input, preference, progression and 2.1/2.2 balance-rule checks (no in-game validation)");
+        npcTactics();
+        duelRules();
+        System.out.println("PASS: "+checks+" client input, preference, progression, 2.1/2.2 balance-rule and NPC tactics checks (no in-game validation)");
     }
 
     /** 2.1 rules: per-stage fist damage and Black Flash, domain duration, volume scaling, Mahoraga adaptation pace. */
@@ -120,6 +124,102 @@ public final class ClientControlsCheck {
         check(b.hit(slash, 141) == InfinityBreach.Result.COUNTED && b.count(slash) == 1, "after the window the count starts again");
         check(b.hit(slash, 400) == InfinityBreach.Result.COUNTED && b.count(slash) == 1, "a 10 s pause resets the count");
         check(!b.open(InfinityBreach.Category.FIST, 40), "other kinds stay closed");
+    }
+
+    /** 2.2.11 NPC against NPC: no blow decides the fight, healing is slow, and the AI picks and leads its techniques. */
+    private static void duelRules() {
+        float max = 200.0f;
+        check(DuelRules.capped(1000.0f, max) == max * DuelRules.HIT_CAP && DuelRules.capped(20.0f, max) == 20.0f, "one blow from an NPC takes at most 35%");
+        check(Math.abs(DuelRules.finisherShare(false) - 0.30f) < 1e-6f && Math.abs(DuelRules.finisherShare(true) - 0.15f) < 1e-6f, "World Cut / Purple 30% between NPCs, the fused Purple 15%");
+        check(DuelRules.finisherShare(false) <= DuelRules.HIT_CAP, "the finisher fits under the cap");
+        check(Math.ceil(1.0 / DuelRules.finisherShare(false)) >= 4, "it takes at least four finishers alone to fell an NPC");
+        check(DuelRules.FINISHER_COOLDOWN < 1200 && DuelRules.FINISHER_COOLDOWN >= 600, "finishers come back every 30-60 s");
+        check(DuelRules.regen(false) == 0.5f && DuelRules.regen(true) == 2.5f, "0.5 health a second in a fight, 2.5 at rest");
+        check(DuelRules.RCT_HEAL == 50.0f && DuelRules.RCT_CHANNEL == 30 && DuelRules.RCT_COOLDOWN == 600, "reverse cursed technique: 1.5 s channel, 50 health, every 30 s");
+        check(DuelRules.RCT_HEAL / (DuelRules.RCT_COOLDOWN / 20.0f) < 2.0f, "the heal is less than 2 health a second over its cooldown");
+        check(DuelRules.recovery(30, 60, 0f) == 30 && DuelRules.recovery(30, 60, 0.999f) == 60, "recovery spans its range");
+        check(DuelRules.LIGHT_MAX <= DuelRules.MEDIUM_MIN, "light techniques recover sooner than medium ones");
+        check(DuelRules.repeatWeight(1.0f, 1) == 0.5f && DuelRules.repeatWeight(1.0f, 2) == 0.25f && DuelRules.repeatWeight(1.0f, 0) == 1.0f, "a repeated technique counts half each time");
+        check(DuelRules.pick(0.0f, 0f, 1f, 1f) == 1 && DuelRules.pick(0.99f, 0f, 1f, 1f) == 2 && DuelRules.pick(0.5f, 0f, 0f) == -1, "weighted pick skips zero weights");
+        int[] seen = new int[3];
+        for (int i = 0; i < 1000; i++) seen[DuelRules.pick(i / 1000.0f, 1f, 2f, 1f)]++;
+        check(Math.abs(seen[1] - 500) <= 2 && Math.abs(seen[0] - 250) <= 2, "weights are honoured");
+        double[] lead = DuelRules.lead(20.0, 2.0, 0.3, 0.0, 0.0, 6.0);
+        check(Math.abs(lead[0] - 3.0) < 1e-9 && lead[2] == 0.0, "a shot leads a running foe by its run over the flight");
+        lead = DuelRules.lead(60.0, 2.0, 1.0, 0.0, 0.0, 6.0);
+        check(Math.abs(lead[0] - 6.0) < 1e-9, "the lead is capped at 6 blocks");
+        check(DuelRules.COUNTER_CHANCE < 1.0f, "a finisher is not always answered, so no endless exchange");
+        check(DuelRules.vsFate(false) > DuelRules.vsFate(true) && DuelRules.vsFate(true) >= 1.0f, "Sukuna, with no Infinity, hits the Fate spirits harder than Gojo");
+    }
+
+    /** 2.2.10 NPC fight rules: a chaser is fought back, a stuck sorcerer uses its mobility, leaps land where aimed. */
+    private static void npcTactics() {
+        NpcTactics t = new NpcTactics();
+        NpcTactics.Reaction r = NpcTactics.Reaction.NONE;
+        for (int i = 0; i < NpcTactics.REACT_TICKS - 1; i++) r = t.pressed(true, false, i);
+        check(r == NpcTactics.Reaction.NONE, "a foe that has just closed in is not fought yet");
+        for (int i = NpcTactics.REACT_TICKS - 1; i < NpcTactics.CLOSE_LIMIT - 1; i++) r = t.pressed(true, false, i);
+        check(r == NpcTactics.Reaction.NONE, "without mobility it backs off for up to 1.5 s");
+        check(t.pressed(true, false, NpcTactics.CLOSE_LIMIT - 1) == NpcTactics.Reaction.COUNTER, "kept on it for 1.5 s: fights back hand to hand");
+        NpcTactics u = new NpcTactics();
+        for (int i = 0; i < NpcTactics.REACT_TICKS - 1; i++) u.pressed(true, true, 100 + i);
+        check(u.pressed(true, true, 105) == NpcTactics.Reaction.BREAK_AWAY, "first close-in: breaks away with its mobility");
+        u.pressed(false, true, 106);
+        for (int i = 0; i < NpcTactics.REACT_TICKS - 1; i++) u.pressed(true, true, 150 + i);
+        check(u.pressed(true, true, 155) == NpcTactics.Reaction.COUNTER, "closing in again within 10 s is a chase: fought at once");
+        NpcTactics w = new NpcTactics();
+        w.pressed(true, true, 0);
+        w.pressed(false, true, 1);
+        for (int i = 0; i < NpcTactics.REACT_TICKS - 1; i++) w.pressed(true, true, 400 + i);
+        check(w.pressed(true, true, 405) == NpcTactics.Reaction.BREAK_AWAY, "a close-in over 10 s after the last is a fresh one");
+        NpcTactics c = new NpcTactics();
+        for (int i = 0; i < 20; i++) c.pressed(true, false, i);
+        c.calm();
+        check(c.pressed(true, false, 20) == NpcTactics.Reaction.NONE, "a hand-to-hand window ends the close-in streak");
+        for (int i = 21; i < 25; i++) c.pressed(true, false, i);
+        check(c.pressed(true, false, 25) == NpcTactics.Reaction.COUNTER, "but the earlier close-in still makes the next one a chase");
+
+        NpcTactics s = new NpcTactics();
+        check(!s.stuck(true, 20.0, 0.0, true), "first check only marks the distance");
+        check(!s.stuck(true, 20.0, 0.2, true) && !s.stuck(true, 20.0, 0.2, true), "cut off for 1 s: still trying on foot");
+        check(s.stuck(true, 20.0, 0.2, true), "cut off for 1.5 s without progress: uses its mobility");
+        check(!s.stuck(true, 20.0, 0.2, true), "the count starts again after a try");
+        check(!s.stuck(true, 18.5, 0.2, true), "getting closer is progress");
+        s.stuck(true, 18.5, 0.2, true);
+        s.stuck(true, 18.5, 0.2, true);
+        check(!s.stuck(true, 18.5, 3.0, true), "moving about is progress");
+        s.stuck(true, 18.5, 0.2, true);
+        s.stuck(true, 18.5, 0.2, true);
+        check(!s.stuck(true, 18.5, 0.2, false) && s.stuck(true, 18.5, 0.2, true), "waits for its mobility, then goes at once");
+        check(!s.stuck(false, 18.5, 0.0, true), "a foe in reach or in sight never counts as stuck");
+
+        double[] flat = fly(NpcTactics.leap(6.0, 0.0, 8.0, 2.0), 0.0);
+        check(flat[0] >= 2.0 && Math.abs(flat[1] - 10.0) < 0.5, "a bound over flat ground lands 10 blocks out, 2+ blocks high");
+        double[] pit = fly(NpcTactics.leap(3.0, 6.0, 3.0, 1.5), 6.0);
+        check(pit[0] >= 7.5 && Math.abs(pit[1] - Math.sqrt(18.0)) < 0.5, "out of a 6-deep pit: clears the rim and lands by the foe");
+        double[] side = fly(NpcTactics.leap(10.0, 0.0, 0.0, 0.6), 0.0);
+        check(side[0] < 1.5 && Math.abs(side[1] - 10.0) < 0.5, "a sidestep is a low, quick bound of 10 blocks");
+        double[] up = NpcTactics.leap(0.0, 4.0, 0.0, 1.0);
+        check(up[0] == 0.0 && up[2] == 0.0 && NpcTactics.apex(up[1]) >= 5.0, "straight up when the foe is overhead");
+        double[] far = NpcTactics.leap(60.0, 0.0, 0.0, 2.0);
+        check(far[0] <= NpcTactics.MAX_FLAT && fly(far, 0.0)[1] < 60.0, "launch speed is capped: very far points fall short");
+    }
+
+    /** A leap flown as a mob flies it (the launch tick still on the ground): {highest point, flat distance back down at dy}. */
+    private static double[] fly(double[] v, double dy) {
+        double x = 0.0, y = 0.0, z = 0.0, vx = v[0], vy = v[1], vz = v[2], top = 0.0;
+        for (int t = 0; t < 400; t++) {
+            x += vx;
+            y += vy;
+            z += vz;
+            top = Math.max(top, y);
+            double f = t == 0 ? NpcTactics.GROUND_FRICTION : NpcTactics.FRICTION;
+            vx *= f;
+            vz *= f;
+            vy = (vy - NpcTactics.GRAVITY) * NpcTactics.DRAG_Y;
+            if (vy < 0.0 && y <= dy) break;
+        }
+        return new double[]{top, Math.sqrt(x * x + z * z)};
     }
 
     /** Pure progression rules: route lock, item consumption, legacy migration, practice gates, gold. */

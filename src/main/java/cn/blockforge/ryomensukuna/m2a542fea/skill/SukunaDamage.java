@@ -14,6 +14,9 @@ public final class SukunaDamage {
     /** Domain sure-hit: passes through Infinity (but not through an overlapping enemy domain). */
     public static final ResourceKey<DamageType> SURE_HIT = ResourceKey.create(Registries.DAMAGE_TYPE, SukunaMod.id("sure_hit"));
 
+    /** Hollow Purple striking a Gojo / Sukuna character: through armour, enchantments and resistance. */
+    public static final ResourceKey<DamageType> HOLLOW_PURPLE = ResourceKey.create(Registries.DAMAGE_TYPE, SukunaMod.id("hollow_purple"));
+
     /** Hollow Purple fused in flight from Ao and Aka: ordinary damage, so armour softens it. */
     public static final ResourceKey<DamageType> FUSED_PURPLE = ResourceKey.create(Registries.DAMAGE_TYPE, SukunaMod.id("fused_purple"));
 
@@ -33,6 +36,10 @@ public final class SukunaDamage {
 
     public static DamageSource worldCut(Level world, Entity attacker) {
         return new DamageSource(world.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(WORLD_CUT), attacker);
+    }
+
+    public static DamageSource hollowPurple(Level world, Entity attacker) {
+        return new DamageSource(world.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(HOLLOW_PURPLE), attacker);
     }
 
     public static DamageSource fusedPurple(Level world, Entity attacker) {

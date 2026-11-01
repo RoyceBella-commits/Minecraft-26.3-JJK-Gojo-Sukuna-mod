@@ -66,23 +66,6 @@ public final class TerrainCuts {
         }
     }
 
-    public static void domainLayer(ServerLevel world, Vec3 center, double radius, int yOffset) {
-        int r = (int)Math.ceil(radius);
-        BlockPos base = BlockPos.containing((Position)center);
-        int y = base.getY() + yOffset;
-        if (y < world.getMinY() || y >= world.getMaxY()) {
-            return;
-        }
-        for (int x = -r; x <= r; ++x) {
-            for (int z = -r; z <= r; ++z) {
-                if ((double)(x * x + z * z) > radius * radius) continue;
-                Vec3 force = new Vec3((double)x, 0.0, (double)z);
-                force = force.lengthSqr() < 0.01 ? new Vec3(0.0, 0.8, 0.0) : force.normalize().scale(0.45).add(0.0, 0.55, 0.0);
-                TerrainCuts.enqueue(world, new BlockPos(base.getX() + x, y, base.getZ() + z), force, false, true);
-            }
-        }
-    }
-
     private static void enqueue(ServerLevel w, BlockPos p, Vec3 force, boolean fire) {
         TerrainCuts.enqueue(w, p, force, fire, false);
     }
@@ -119,6 +102,8 @@ public final class TerrainCuts {
             if (!world.hasChunkAt(p) || (state = world.getBlockState(p)).isAir() || state.getDestroySpeed((BlockGetter)world, p) < 0.0f) continue;
             // Containers and other block entities, bedrock-like blocks are never destroyed.
             if (state.hasBlockEntity() || state.is(Blocks.BEDROCK)) continue;
+            // The land inside an open domain cannot be broken.
+            if (cn.blockforge.ryomensukuna.m2a542fea.combat.DomainTerrain.protects(world, p)) continue;
             if (cut.clean()) {
                 world.setBlock(p, Blocks.AIR.defaultBlockState(), 3);
                 ++broken;

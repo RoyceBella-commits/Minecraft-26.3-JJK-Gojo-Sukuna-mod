@@ -138,6 +138,12 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
             this.anchored = true;
             this.entityData.set(START_TIME, (this.level().getGameTime() - (long)this.life));
             this.entityData.set(OWNER_UUID, this.ownerUuid);
+            // The domain's sphere becomes a superflat arena (the shrine stands on its floor) until it
+            // ends; enemies close by are drawn in.
+            LivingEntity caster = this.getOwnerEntity() instanceof LivingEntity l ? l : null;
+            cn.blockforge.ryomensukuna.m2a542fea.combat.DomainTerrain.openFlat(this, caster, new Vec3(this.anchorX, this.anchorY, this.anchorZ),
+                this.radius, net.minecraft.util.Mth.floor(this.anchorY) - 1,
+                e -> this.isValidTarget(e) && (caster == null || !CurseManager.protectedTarget(caster, e)));
         }
         ++this.life;
         this.entityData.set(LIFE, this.life);
@@ -165,7 +171,8 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
             List<LivingEntity> targets = this.level().getEntities(LIVING, box, this::isValidTarget);
             for (LivingEntity target : targets) {
                 // In a clash the rival caster is untouched; everyone else suffers both domains.
-                if (CurseManager.protectedTarget(owner, target) || target.getUUID().equals(cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.clashRival(this))) continue;
+                if (CurseManager.protectedTarget(owner, target) || target.getUUID().equals(cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.clashRival(this))
+                    || cn.blockforge.ryomensukuna.m2a542fea.api.DomainHooks.immune(target)) continue;
                 CurseManager.damage(this.level(), owner, target, SURE_HIT_DAMAGE, cn.blockforge.ryomensukuna.m2a542fea.skill.SukunaDamage.sureHit(this.level(), owner), this.castId, cn.blockforge.ryomensukuna.m2a542fea.gojo.InfinityBreach.Category.SLASH);
                 this.spawnRandomSlashFx(target);
                 this.level().playSound(null, target.getX(), target.getY() + 0.8, target.getZ(), SukunaSounds.DOMAIN_SLICE, SoundSource.PLAYERS, 1.0f, 0.9f + this.random.nextFloat() * 0.2f);
@@ -191,15 +198,7 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
                 // Red and white slashes in turn: white blades and crimson ones with a white-hot core.
                 SlashFxEntity.spawn(this.level(), ex, ey, ez, i % 2 == 0 ? 1 : SlashFxEntity.CLASH, this.random.nextFloat() * 360.0f, this.random.nextFloat() * 70.0f - 35.0f, 1.8f + this.random.nextFloat() * 2.5f);
             }
-            Level ang = this.level();
-            if (ang instanceof ServerLevel) {
-                int layer;
-                ServerLevel sw = (ServerLevel)ang;
-                int clearTick = this.life - 100;
-                if (clearTick >= 0 && clearTick % 6 == 0 && (layer = clearTick / 6) < 384) {
-                    TerrainCuts.domainLayer(sw, new Vec3(this.anchorX, this.anchorY, this.anchorZ), this.radius, layer);
-                }
-            }
+            // (The land itself was already flattened into the arena when the domain opened.)
             if (this.life % 12 == 0) {
                 this.level().playSound(null, this.anchorX, this.anchorY + 2.0, this.anchorZ, SukunaSounds.DOMAIN_SLICE, SoundSource.PLAYERS, 1.8f, 0.75f + this.random.nextFloat() * 0.25f);
                 Level level = this.level();
@@ -267,6 +266,7 @@ extends Entity implements cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClas
         if (!this.finished) {
             this.finished = true;
             cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.unregister(this);
+            cn.blockforge.ryomensukuna.m2a542fea.combat.DomainTerrain.close(this.getUUID());
             if (!this.level().isClientSide() && this.getOwnerEntity() instanceof ServerPlayer p) {
                 CurseManager.startBurnout(p);
             }

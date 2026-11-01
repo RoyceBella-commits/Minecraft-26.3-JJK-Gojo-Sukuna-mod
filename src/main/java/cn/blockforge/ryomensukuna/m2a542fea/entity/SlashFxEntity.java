@@ -81,6 +81,7 @@ extends Entity {
                     if (!this.level().hasChunkAt(p)) continue block0;
                     if (this.level().getBlockState(p).isRedstoneConductor((BlockGetter)this.level(), p)) {
                         if (!this.level().getBlockState(p.above()).isAir()) continue block0;
+                        if (cn.blockforge.ryomensukuna.m2a542fea.combat.DomainTerrain.protects(this.level(), p.above())) continue block0;
                         this.level().setBlock(p.above(), Blocks.FIRE.defaultBlockState(), 3);
                         continue block0;
                     }

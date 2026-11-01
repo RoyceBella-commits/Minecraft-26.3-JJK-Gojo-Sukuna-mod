@@ -67,8 +67,22 @@ public class MurasakiEntity extends TechniqueEntity {
 
     private void strike(ServerLevel level, LivingEntity owner, LivingEntity e) {
         this.hit.add(e.getUUID());
+        if (cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.character(e)) {
+            // Between the two sides: 75% of the whole health (the fused Purple half that, armour still counting).
+            Entity attacker = owner != null ? owner : this;
+            float share = cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.CHARACTER_LOSS * (this.fused ? 0.5f : 1.0f);
+            cn.blockforge.ryomensukuna.m2a542fea.combat.Finishers.strikeCharacter(level, attacker, e,
+                this.fused ? SukunaDamage.fusedPurple(level, attacker) : SukunaDamage.hollowPurple(level, attacker), this.castId, share);
+            return;
+        }
         if (!this.fused) {
-            CurseManager.curseDamage(level, owner != null ? owner : this, e, SukunaDamage.finisher(e, this.random), this.castId);
+            Entity attacker = owner != null ? owner : this;
+            if (cn.blockforge.ryomensukuna.m2a542fea.combat.DamageTaken.otherModNpc(e)) {
+                // Another mod's character: the Purple's own type, so that mod can size the blow like its own finishers.
+                CurseManager.damage(level, attacker, e, SukunaDamage.finisher(e, this.random), SukunaDamage.hollowPurple(level, attacker), this.castId);
+            } else {
+                CurseManager.curseDamage(level, attacker, e, SukunaDamage.finisher(e, this.random), this.castId);
+            }
             return;
         }
         if (e instanceof MahoragaEntity mahoraga) {

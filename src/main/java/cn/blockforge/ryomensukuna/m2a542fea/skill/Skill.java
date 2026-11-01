@@ -12,13 +12,13 @@ public enum Skill {
     CLEAVE(16.0f, 0.12f, StageRules.SUKUNA, 2, 3.0f),
     RCT(28.0f, 0.0f, StageRules.SUKUNA, 2, 8.0f),
     RED(30.0f, 0.55f, StageRules.SUKUNA, 3, 6.0f),
-    WORLD_CUT(55.0f, 0.25f, StageRules.SUKUNA, 3, 15.0f),
+    WORLD_CUT(55.0f, 0.25f, StageRules.SUKUNA, 3, 60.0f),
     DOMAIN(90.0f, 0.0f, StageRules.SUKUNA, 4, 60.0f),
     MAHORAGA(75.0f, 0.0f, StageRules.SUKUNA, 4, 30.0f),
     CURSED_BARRAGE(22.0f, 2.5f, StageRules.SUKUNA, 2, 10.0f),
     AO(12.0f, 4.0f, StageRules.GOJO, 1, 3.0f),
     AKA(24.0f, 6.0f, StageRules.GOJO, 2, 6.0f),
-    MURASAKI(120.0f, 20.0f, StageRules.GOJO, 3, 25.0f),
+    MURASAKI(120.0f, 20.0f, StageRules.GOJO, 3, 60.0f),
     GOJO_RCT(28.0f, 0.0f, StageRules.GOJO, 2, 8.0f),
     VOID(150.0f, 0.0f, StageRules.GOJO, 4, 60.0f);
 

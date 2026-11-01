@@ -102,6 +102,7 @@ implements ModInitializer {
             Infinity.tickHeld();
             cn.blockforge.ryomensukuna.m2a542fea.combat.DomainClash.tick();
             cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.SukunaWheel.tick(server);
+            cn.blockforge.ryomensukuna.m2a542fea.combat.DomainTerrain.tick(server);
             for (ServerLevel world : server.getAllLevels()) {
                 TerrainCuts.tick(world);
             }
@@ -122,6 +123,14 @@ implements ModInitializer {
                 CurseManager.onDeath(player);
             }
         });
+        // The land of an open domain cannot be dug out.
+        net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
+            if (!cn.blockforge.ryomensukuna.m2a542fea.combat.DomainTerrain.protects(world, pos)) return true;
+            if (player instanceof ServerPlayer sp) cn.blockforge.ryomensukuna.m2a542fea.net.SukunaNet.actionBar(sp, "sukuna.hint.domain_ground");
+            return false;
+        });
+        // Land reshaped by domains goes back before the world is saved.
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> cn.blockforge.ryomensukuna.m2a542fea.combat.DomainTerrain.restoreAllNow());
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             CurseManager.clearTransient();
             GojoSkills.clear();

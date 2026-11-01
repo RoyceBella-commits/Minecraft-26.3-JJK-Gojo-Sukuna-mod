@@ -177,6 +177,7 @@ public final class MahoragaAdaptation {
             case "sukuna:world_cut" -> "\u4e16\u754c\u65a9";
             case "sukuna:sure_hit" -> "\u9886\u57df\u5fc5\u4e2d";
             case "sukuna:fused_purple" -> "\u5408\u6210\u8308";
+            case "sukuna:hollow_purple" -> "\u865a\u5f0f\u00b7\u8308";
             default -> id;
         };
         return Component.literal((String)label);

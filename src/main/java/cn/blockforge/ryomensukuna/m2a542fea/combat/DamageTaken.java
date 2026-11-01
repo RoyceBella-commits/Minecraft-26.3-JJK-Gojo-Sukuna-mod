@@ -1,5 +1,6 @@
 package cn.blockforge.ryomensukuna.m2a542fea.combat;
 
+import cn.blockforge.ryomensukuna.m2a542fea.entity.npc.GojoNpcEntity;
 import cn.blockforge.ryomensukuna.m2a542fea.entity.npc.JjkNpcEntity;
 import cn.blockforge.ryomensukuna.m2a542fea.progression.StageRules;
 import cn.blockforge.ryomensukuna.m2a542fea.skill.CurseManager;
@@ -22,6 +23,8 @@ import net.minecraft.world.entity.LivingEntity;
 public final class DamageTaken {
     /** Namespace of the Fate kings mod (its entities, damage types and regalia). */
     private static final String FATE_MOD = "fatekings";
+    /** Namespace of the Devil May Cry mod (its NPCs are only told apart, never depended on). */
+    private static final String DMC_MOD = "devilmaycraft";
     private static final EquipmentSlot[] ARMOR = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
     private DamageTaken() {
@@ -31,6 +34,8 @@ public final class DamageTaken {
         if (amount <= 0.0f || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return amount;
         // Sukuna's own adaptation wheel (while his Mahoraga stands) takes its share first.
         amount = cn.blockforge.ryomensukuna.m2a542fea.skill.mahoraga.SukunaWheel.scale(target, source, amount);
+        // A World Cut / Hollow Purple between the two sides is already the exact share of health to take.
+        if (Finishers.exact()) return amount;
         int stage;
         if (target instanceof ServerPlayer p) {
             CurseState s = CurseManager.of(p);
@@ -51,6 +56,36 @@ public final class DamageTaken {
         if (CurseManager.isSorcerer(attacker)) return true;
         if (fromFateMod(attacker) || fromFateMod(source.getDirectEntity())) return true;
         return source.typeHolder().unwrapKey().map(k -> FATE_MOD.equals(k.identifier().getNamespace())).orElse(false);
+    }
+
+    /** A blow (not /kill or the void) whose attacker is a mob rather than a player: the NPC-versus-NPC rules apply. */
+    public static boolean npcBlow(DamageSource source) {
+        if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;
+        Entity attacker = source.getEntity();
+        return attacker instanceof LivingEntity && !(attacker instanceof net.minecraft.world.entity.player.Player);
+    }
+
+    /** One of the Fate spirits (a mob of that mod). */
+    public static boolean fateNpc(Entity e) {
+        return e instanceof net.minecraft.world.entity.Mob && FATE_MOD.equals(BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getNamespace());
+    }
+
+    /** One of the Devil May Cry brothers (a mob of that mod). */
+    public static boolean dmcNpc(Entity e) {
+        return e instanceof net.minecraft.world.entity.Mob && DMC_MOD.equals(BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getNamespace());
+    }
+
+    /** Another mod's character NPC: a Fate spirit or a Devil May Cry brother. */
+    public static boolean otherModNpc(Entity e) {
+        return fateNpc(e) || dmcNpc(e);
+    }
+
+    /** A technique NPC's extra on another mod's NPC, whose pool sits behind that mod's own damage share. */
+    public static float npcVs(Entity attacker, Entity target) {
+        if (!(attacker instanceof JjkNpcEntity)) return 1.0f;
+        if (fateNpc(target)) return DuelRules.vsFate(attacker instanceof GojoNpcEntity);
+        if (dmcNpc(target)) return DuelRules.VS_DMC;
+        return 1.0f;
     }
 
     private static boolean fromFateMod(Entity e) {

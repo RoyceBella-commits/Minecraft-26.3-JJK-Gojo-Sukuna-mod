@@ -236,6 +236,7 @@ public final class CurseManager {
         if (target.isInvulnerable() || target.isRemoved() || protectedTarget(attacker, target)) {
             return false;
         }
+        amount *= cn.blockforge.ryomensukuna.m2a542fea.combat.DamageTaken.npcVs(attacker, target);
         boolean hurt = world instanceof net.minecraft.server.level.ServerLevel sl && target.hurtServer(sl, source, amount);
         target.setInvulnerableTime(0);
         ServerPlayer caster = casterOf(attacker);

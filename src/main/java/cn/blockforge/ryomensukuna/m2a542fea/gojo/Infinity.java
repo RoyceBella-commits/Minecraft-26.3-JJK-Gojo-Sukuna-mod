@@ -36,6 +36,8 @@ import net.minecraft.world.phys.Vec3;
  * Only Sukuna's side can break it: World Cut always passes; three slashes / flames / fists (or
  * three Mahoraga blows) break that kind for 5 s. Damage that bypasses invulnerability (/kill,
  * the void) and hunger, drowning or effects are never blocked. Arrows stop in front of the user.
+ * The Gojo NPC fighting other NPCs is a little more open: any sorcerer-class NPC breaks it the same
+ * way with blows that are not projectiles, and another domain's sure-hit lands on it.
  */
 public final class Infinity {
     private static final float UPKEEP_PER_SECOND = 0.5f;
@@ -75,6 +77,17 @@ public final class Infinity {
     public static boolean protects(LivingEntity e) {
         if (e instanceof ServerPlayer p) return active(p);
         return e instanceof GojoNpcEntity npc && npc.isAlive();
+    }
+
+    /** Some kind of attack has broken this sorcerer's Infinity right now. */
+    public static boolean breached(LivingEntity e) {
+        InfinityBreach breach = BREACH.get(e.getUUID());
+        if (breach == null) return false;
+        long now = e.level().getGameTime();
+        for (InfinityBreach.Category c : InfinityBreach.Category.values()) {
+            if (breach.open(c, now)) return true;
+        }
+        return false;
     }
 
     private static float discount(ServerPlayer p) {
@@ -206,10 +219,20 @@ public final class Infinity {
         return e instanceof SukunaNpcEntity || e instanceof ServerPlayer sp && CurseManager.of(sp).route() == StageRules.SUKUNA;
     }
 
+    /**
+     * NPC against the Gojo NPC: any sorcerer-class NPC (the technique NPCs, and the Fate spirits and
+     * Devil May Cry brothers the other mods register as such) wears Infinity down with blows that are
+     * not projectiles: fists, blades, slashes, techniques. Projectiles still never get through.
+     */
+    private static boolean npcBreaker(LivingEntity target, Entity attacker, Entity direct) {
+        return target instanceof GojoNpcEntity && attacker != null && !(attacker instanceof ServerPlayer)
+            && CurseManager.isSorcerer(attacker) && !(direct instanceof Projectile);
+    }
+
     /** Which kind of attack this is for breaking Infinity, or null if it can never break it. */
-    private static InfinityBreach.Category category(Entity attacker, DamageSource source) {
+    private static InfinityBreach.Category category(LivingEntity target, Entity attacker, Entity direct, DamageSource source) {
         if (attacker instanceof MahoragaEntity) return InfinityBreach.Category.MAHORAGA;
-        if (!sukunaSide(attacker)) return null;
+        if (!sukunaSide(attacker) && !npcBreaker(target, attacker, direct)) return null;
         if (pending != null) return pending;
         if (source.is(DamageTypeTags.IS_FIRE)) return InfinityBreach.Category.FLAME;
         if (source.is(DamageTypes.PLAYER_ATTACK) || source.is(DamageTypes.MOB_ATTACK)) return InfinityBreach.Category.FIST;
@@ -231,7 +254,9 @@ public final class Infinity {
             crack(target, direct != null ? direct : attacker);
             return true;
         }
-        InfinityBreach.Category kind = attacker == null ? null : category(attacker, source);
+        // Someone else's domain: its sure-hit lands on the Gojo NPC inside it.
+        if (target instanceof GojoNpcEntity && source.is(SukunaDamage.SURE_HIT)) return true;
+        InfinityBreach.Category kind = attacker == null ? null : category(target, attacker, direct, source);
         if (kind != null) {
             long now = target.level().getGameTime();
             InfinityBreach breach = BREACH.computeIfAbsent(target.getUUID(), k -> new InfinityBreach());
@@ -264,6 +289,10 @@ public final class Infinity {
         if (!environment) {
             Entity from = direct != null ? direct : attacker;
             ripple((ServerLevel)target.level(), from.getBoundingBox().getCenter(), target.getBoundingBox().getCenter());
+        }
+        // The blow never landed, but the Gojo NPC still knows who struck at it and turns on them.
+        if (target instanceof GojoNpcEntity && attacker instanceof LivingEntity foe && !(foe instanceof ServerPlayer) && foe.isAlive()) {
+            target.setLastHurtByMob(foe);
         }
         long now = target.level().getGameTime();
         Long last = LAST_CHIME.get(target);
